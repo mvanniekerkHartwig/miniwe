@@ -29,8 +29,10 @@ public class StageDefinition {
     private final String stageName;
     private final PersistentVolumeClaim outputPvc;
     private final Job job;
+    private final String serviceAccountName;
 
-    public StageDefinition(Stage stage, String runName, String workflowName, String namespace, int storageSizeGi) {
+    public StageDefinition(Stage stage, String runName, String workflowName, String namespace, int storageSizeGi, String serviceAccountName) {
+        this.serviceAccountName = serviceAccountName;
         this.namespace = namespace;
         var imageName = String.format("%s:%s", stage.image(), stage.version());
 
@@ -42,7 +44,7 @@ public class StageDefinition {
         List<Volume> volumes = new ArrayList<>();
         List<VolumeMount> mounts = new ArrayList<>();
         for (final String inputStage : stage.inputStages()) {
-            var volumeName = KubernetesUtil.toValidRFC1123Label(stageName, "volume");
+            var volumeName = KubernetesUtil.toValidRFC1123Label(workflowName, runName, inputStage, "volume");
             var volumeMountPath = "/in/" + inputStage;
 
             volumes.add(new VolumeBuilder().withName(volumeName).withNewPersistentVolumeClaim(volumeName, true).build());
@@ -59,7 +61,11 @@ public class StageDefinition {
         args.ifPresent(containerBuilder::withArgs);
         entrypoint.ifPresent(containerBuilder::withCommand);
         var container = containerBuilder.build();
-        var pod = new PodSpecBuilder().withContainers(container).withRestartPolicy("Never").withVolumes(volumes).build();
+        var pod = new PodSpecBuilder().withServiceAccountName(serviceAccountName)
+                .withContainers(container)
+                .withRestartPolicy("Never")
+                .withVolumes(volumes)
+                .build();
 
         var jobSpec = new JobSpecBuilder().withBackoffLimit(1).withNewTemplate().withSpec(pod).endTemplate().build();
         job = new JobBuilder().withNewMetadata().withName(stageName).withNamespace(namespace).endMetadata().withSpec(jobSpec).build();

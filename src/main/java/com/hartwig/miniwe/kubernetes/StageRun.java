@@ -2,6 +2,8 @@ package com.hartwig.miniwe.kubernetes;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -10,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobCondition;
+import io.fabric8.kubernetes.api.model.batch.v1.JobStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.ScalableResource;
 
@@ -37,9 +40,24 @@ public class StageRun implements Closeable {
         LOGGER.info("Created job with name {}", job.getMetadata().getName());
     }
 
-    public void waitUntilComplete() {
+    public boolean waitUntilComplete() {
         var jobResource = client.batch().v1().jobs().inNamespace(namespace).resource(job);
-        jobResource.waitUntilCondition(r -> r.getStatus().getFailed() > 1 || r.getStatus().getSucceeded() > 0, 15, TimeUnit.MINUTES);
+        jobResource.waitUntilCondition(r -> {
+            var status = r.getStatus();
+            if (status != null) {
+                if (status.getFailed() != null && status.getFailed() > 1) {
+                    return true;
+                } else if (status.getSucceeded() != null && status.getSucceeded() > 0) {
+                    return true;
+                }
+            }
+            return false;
+        }, 15, TimeUnit.MINUTES);
+        return Optional.ofNullable(jobResource.get())
+                .map(Job::getStatus)
+                .map(JobStatus::getSucceeded)
+                .map(success -> Objects.equals(1, success))
+                .orElse(false);
     }
 
     @Override
