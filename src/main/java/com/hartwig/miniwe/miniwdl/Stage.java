@@ -3,9 +3,13 @@ package com.hartwig.miniwe.miniwdl;
 import java.util.List;
 import java.util.Optional;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
 import org.immutables.value.Value;
 
 @Value.Immutable
+@Value.Style(jdkOnly = true)
+@JsonDeserialize(as = ImmutableStage.class)
 public interface Stage {
     /**
      * Stage name

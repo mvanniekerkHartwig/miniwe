@@ -35,7 +35,7 @@ public class ExecutionGraph {
         this.pipeline = pipeline;
     }
 
-    public Future<?> start(ExecutorService executorService, StageScheduler stageScheduler) {
+    public CompletableFuture<String> start(ExecutorService executorService, StageScheduler stageScheduler) {
         if (run != null) {
             LOGGER.warn("Run was already started. Cannot start a new run for this execution graph.");
             return CompletableFuture.completedFuture(null);
@@ -92,8 +92,8 @@ public class ExecutionGraph {
             this.stageScheduler = stageScheduler;
         }
 
-        Future<?> start() {
-            return this.executorService.submit(() -> {
+        CompletableFuture<String> start() {
+            return CompletableFuture.supplyAsync(() -> {
                 LOGGER.info("Starting execution graph. Looks like: {}", toDotFormat());
                 while (!runGraph.vertexSet().isEmpty()) {
                     runRound();
@@ -104,8 +104,8 @@ public class ExecutionGraph {
                         throw new RuntimeException(e);
                     }
                 }
-                LOGGER.info("Finished running execution graph. Final result: {}", toDotFormat());
-            });
+                return toDotFormat();
+            }, executorService);
         }
 
         private void runRound() {

@@ -16,7 +16,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 
 public class KubernetesStageScheduler implements StageScheduler {
     private static final Logger LOGGER = LoggerFactory.getLogger(KubernetesStageScheduler.class);
-    public static final int DEFAULT_STORAGE_SIZE_GI = 10;
+    public static final int DEFAULT_STORAGE_SIZE_GI = 1;
 
     private final String namespace;
     private final ExecutionDefinition executionDefinition;
@@ -37,15 +37,15 @@ public class KubernetesStageScheduler implements StageScheduler {
     public CompletableFuture<Boolean> schedule(final String stageName) {
         return CompletableFuture.supplyAsync(() -> {
             var stage = replaced(getStage(stageName), executionDefinition.params());
-            var runName = executionDefinition.executionName();
-            var definition = new StageDefinition(stage, runName, namespace, DEFAULT_STORAGE_SIZE_GI);
+            var runName = executionDefinition.name();
+            var definition = new StageDefinition(stage, runName, miniWdl.name(), namespace, DEFAULT_STORAGE_SIZE_GI);
             try (var run = definition.submit(kubernetesClient)) {
                 run.start();
                 run.waitUntilComplete();
-                LOGGER.info("Run [{}] completed", runName);
+                LOGGER.info("Stage [{}] completed", definition.getStageName());
                 return true;
             } catch (Exception e) {
-                LOGGER.error("Run [{}] failed with", runName, e);
+                LOGGER.error("Stage [{}] failed with", definition.getStageName(), e);
                 return false;
             }
         }, executor);

@@ -30,12 +30,11 @@ public class StageDefinition {
     private final PersistentVolumeClaim outputPvc;
     private final Job job;
 
-
-    public StageDefinition(Stage stage, String runName, String namespace, int storageSizeGi) {
+    public StageDefinition(Stage stage, String runName, String workflowName, String namespace, int storageSizeGi) {
         this.namespace = namespace;
         var imageName = String.format("%s:%s", stage.image(), stage.version());
 
-        this.stageName = KubernetesUtil.toValidRFC1123Label(runName, stage.name());
+        this.stageName = KubernetesUtil.toValidRFC1123Label(workflowName, runName, stage.name());
 
         var args = stage.arguments().map(arguments -> List.of(arguments.split(" ")));
         var entrypoint = stage.entrypoint().map(a -> List.of(a.split(" ")));
@@ -62,7 +61,7 @@ public class StageDefinition {
         var container = containerBuilder.build();
         var pod = new PodSpecBuilder().withContainers(container).withRestartPolicy("Never").withVolumes(volumes).build();
 
-        var jobSpec = new JobSpecBuilder().withNewTemplate().withSpec(pod).endTemplate().build();
+        var jobSpec = new JobSpecBuilder().withBackoffLimit(1).withNewTemplate().withSpec(pod).endTemplate().build();
         job = new JobBuilder().withNewMetadata().withName(stageName).withNamespace(namespace).endMetadata().withSpec(jobSpec).build();
     }
 
@@ -76,9 +75,7 @@ public class StageDefinition {
 
     @Override
     public String toString() {
-        return Stream.of(outputPvc, job)
-                .map(Serialization::asYaml)
-                .collect(Collectors.joining());
+        return Stream.of(outputPvc, job).map(Serialization::asYaml).collect(Collectors.joining());
     }
 
     private static PersistentVolumeClaim persistentVolumeClaim(String pvcName, int storageSizeGi, String namespace) {

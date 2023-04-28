@@ -1,0 +1,6 @@
+name: "test-run-mvn"
+params:
+  patient_id: "pid"
+  primary_tumor_doids: "162"
+  orange_path: "gs://run-colo829v003r-colo829v003t-ned-lcm-testing/orange/results/"
+  output_path: "gs://test-run-mvn/"
