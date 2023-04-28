@@ -23,9 +23,11 @@ public class KubernetesStageScheduler implements StageScheduler {
     private final MiniWdl miniWdl;
     private final ExecutorService executor;
     private final KubernetesClient kubernetesClient;
+    private final String serviceAccountName;
 
     public KubernetesStageScheduler(final String namespace, final ExecutionDefinition executionDefinition, final MiniWdl miniWdl,
-            final ExecutorService executor, final KubernetesClient kubernetesClient) {
+            final ExecutorService executor, final KubernetesClient kubernetesClient, final String serviceAccountName) {
+        this.serviceAccountName = serviceAccountName;
         this.namespace = namespace;
         this.executionDefinition = executionDefinition;
         this.miniWdl = miniWdl;
@@ -38,12 +40,12 @@ public class KubernetesStageScheduler implements StageScheduler {
         return CompletableFuture.supplyAsync(() -> {
             var stage = replaced(getStage(stageName), executionDefinition.params());
             var runName = executionDefinition.name();
-            var definition = new StageDefinition(stage, runName, miniWdl.name(), namespace, DEFAULT_STORAGE_SIZE_GI);
+            var definition = new StageDefinition(stage, runName, miniWdl.name(), namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName);
             try (var run = definition.submit(kubernetesClient)) {
                 run.start();
-                run.waitUntilComplete();
-                LOGGER.info("Stage [{}] completed", definition.getStageName());
-                return true;
+                var result = run.waitUntilComplete();
+                LOGGER.info("Stage [{}] completed with status [{}]", definition.getStageName(), result ? "Success" : "Failed");
+                return result;
             } catch (Exception e) {
                 LOGGER.error("Stage [{}] failed with", definition.getStageName(), e);
                 return false;

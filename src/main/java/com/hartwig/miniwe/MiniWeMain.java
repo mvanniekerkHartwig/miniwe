@@ -39,6 +39,10 @@ public class MiniWeMain implements Callable<Integer> {
                         description = "Name of the kubernetes namespace")
     private String kubernetesNamespace;
 
+    @CommandLine.Option(names = { "--service-account-name" },
+                        description = "Name of the kubernetes job service account")
+    private String kubernetesServiceAccountName;
+
     @Override
     public Integer call() {
         try (var kubernetesClient = new KubernetesClientBuilder().build()) {
@@ -48,7 +52,7 @@ public class MiniWeMain implements Callable<Integer> {
 
             var executorService = Executors.newFixedThreadPool(16);
             var kubernetesStageScheduler =
-                    new KubernetesStageScheduler(kubernetesNamespace, executionDefinition, miniWdl, executorService, kubernetesClient);
+                    new KubernetesStageScheduler(kubernetesNamespace, executionDefinition, miniWdl, executorService, kubernetesClient, kubernetesServiceAccountName);
             var executionGraph = new ExecutionGraph(miniWdl);
 
             LOGGER.info("Starting execution graph.");
