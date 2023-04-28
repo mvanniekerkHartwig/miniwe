@@ -2,7 +2,7 @@
 - Mini workflow engine that runs in kubernetes.
 - The workflow engine runs docker containers that specify entrypoints.
 - Previous stage outputs that the current stage depends on are mounted to the docker container as volumes at `/in/{stage_name}`.
-- The current stage should write its output files to `/out`.
+- The current stage should write its output files to a volume mounted at `/out`.
 
 Example workflow definition:
 ```yaml
