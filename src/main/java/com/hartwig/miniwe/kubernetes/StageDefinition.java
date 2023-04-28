@@ -20,20 +20,22 @@ import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
 import io.fabric8.kubernetes.api.model.batch.v1.JobSpecBuilder;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.utils.Serialization;
 
 public class StageDefinition {
 
+    private final String namespace;
+    private final String stageName;
     private final PersistentVolumeClaim outputPvc;
     private final Job job;
 
 
     public StageDefinition(Stage stage, String runName, String namespace, int storageSizeGi) {
+        this.namespace = namespace;
         var imageName = String.format("%s:%s", stage.image(), stage.version());
 
-        var name = stage.name();
-        var jobName = KubernetesUtil.toValidRFC1123Label(runName, name, "job");
-        var containerName = KubernetesUtil.toValidRFC1123Label(runName, name, "container");
+        this.stageName = KubernetesUtil.toValidRFC1123Label(runName, stage.name());
 
         var args = stage.arguments().map(arguments -> List.of(arguments.split(" ")));
         var entrypoint = stage.entrypoint().map(a -> List.of(a.split(" ")));
@@ -41,27 +43,35 @@ public class StageDefinition {
         List<Volume> volumes = new ArrayList<>();
         List<VolumeMount> mounts = new ArrayList<>();
         for (final String inputStage : stage.inputStages()) {
-            var volumeName = KubernetesUtil.toValidRFC1123Label(runName, inputStage, "volume");
+            var volumeName = KubernetesUtil.toValidRFC1123Label(stageName, "volume");
             var volumeMountPath = "/in/" + inputStage;
 
             volumes.add(new VolumeBuilder().withName(volumeName).withNewPersistentVolumeClaim(volumeName, true).build());
             mounts.add(new VolumeMountBuilder().withName(volumeName).withMountPath(volumeMountPath).build());
         }
 
-        var outputVolumeName = KubernetesUtil.toValidRFC1123Label(runName, name, "volume");
+        var outputVolumeName = KubernetesUtil.toValidRFC1123Label(stageName, "volume");
 
         outputPvc = persistentVolumeClaim(outputVolumeName, storageSizeGi, namespace);
         volumes.add(new VolumeBuilder().withName(outputVolumeName).withNewPersistentVolumeClaim(outputVolumeName, false).build());
         mounts.add(new VolumeMountBuilder().withName(outputVolumeName).withMountPath("/out").build());
 
-        var containerBuilder = new ContainerBuilder().withName(containerName).withImage(imageName).withVolumeMounts(mounts);
+        var containerBuilder = new ContainerBuilder().withName(stageName).withImage(imageName).withVolumeMounts(mounts);
         args.ifPresent(containerBuilder::withArgs);
         entrypoint.ifPresent(containerBuilder::withCommand);
         var container = containerBuilder.build();
         var pod = new PodSpecBuilder().withContainers(container).withRestartPolicy("Never").withVolumes(volumes).build();
 
         var jobSpec = new JobSpecBuilder().withNewTemplate().withSpec(pod).endTemplate().build();
-        job = new JobBuilder().withNewMetadata().withName(jobName).withNamespace(namespace).endMetadata().withSpec(jobSpec).build();
+        job = new JobBuilder().withNewMetadata().withName(stageName).withNamespace(namespace).endMetadata().withSpec(jobSpec).build();
+    }
+
+    public String getStageName() {
+        return stageName;
+    }
+
+    public StageRun submit(KubernetesClient client) {
+        return new StageRun(outputPvc, job, namespace, client);
     }
 
     @Override

@@ -3,6 +3,9 @@ package com.hartwig.miniwe.miniwdl;
 import java.util.List;
 import java.util.Optional;
 
+import org.immutables.value.Value;
+
+@Value.Immutable
 public interface Stage {
     /**
      * Stage name
@@ -33,4 +36,8 @@ public interface Stage {
      * Entrypoint. Default is the docker entrypoint.
      */
     Optional<String> entrypoint();
+
+    static ImmutableStage.Builder builder() {
+        return ImmutableStage.builder();
+    }
 }

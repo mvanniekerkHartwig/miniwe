@@ -2,9 +2,12 @@ package com.hartwig.miniwe.miniwdl;
 
 import java.util.List;
 
+import org.immutables.value.Value;
+
 /**
  * Mini Workflow Definition Language
  */
+@Value.Immutable
 public interface MiniWdl {
     /**
      * WDL name, should be unique
@@ -25,4 +28,8 @@ public interface MiniWdl {
      * List of stages.
      */
     List<Stage> stages();
+
+    static ImmutableMiniWdl.Builder builder() {
+        return ImmutableMiniWdl.builder();
+    }
 }

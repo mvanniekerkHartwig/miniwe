@@ -117,7 +117,7 @@ public class ExecutionGraph {
             for (Stage stage : readyStages) {
                 LOGGER.info("Starting stage {}", stage.name());
                 stageTagToRunningState.put(stage.name(), StageRunningState.RUNNING);
-                stageScheduler.schedule(stage).thenAccept(result -> stageDoneQueue.add(Pair.of(stage, result)));
+                stageScheduler.schedule(stage.name()).thenAccept(result -> stageDoneQueue.add(Pair.of(stage, result)));
             }
             LOGGER.info("Execution graph updated: {}", toDotFormat());
         }
