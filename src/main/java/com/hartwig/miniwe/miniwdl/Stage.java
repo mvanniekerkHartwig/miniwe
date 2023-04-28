@@ -27,5 +27,10 @@ public interface Stage {
     /**
      * Arguments passed into the docker container directly after the entrypoint
      */
-    String arguments();
+    Optional<String> arguments();
+
+    /**
+     * Entrypoint. Default is the docker entrypoint.
+     */
+    Optional<String> entrypoint();
 }

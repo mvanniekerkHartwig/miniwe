@@ -5,5 +5,5 @@ import java.util.concurrent.CompletableFuture;
 import com.hartwig.miniwe.miniwdl.Stage;
 
 public interface StageScheduler {
-    CompletableFuture<Boolean> schedule(Stage stage);
+    CompletableFuture<Boolean> schedule(String stageName);
 }

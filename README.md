@@ -17,7 +17,7 @@ stages:
   - name: orange
     image: "eu.gcr.io/hmf-build/google/cloud-sdk"
     version: "425.0.0"
-    entryPoint: "gsutil rsync ${orange_path} /out"
+    entrypoint: "gsutil rsync ${orange_path} /out"
   - name: rose
     image: "eu.gcr.io/hmf-pipeline-prod-e45b00f2/rose"
     version: "latest"
@@ -33,8 +33,18 @@ stages:
   - name: output
     image: "eu.gcr.io/hmf-build/google/cloud-sdk"
     version: "425.0.0"
-    entryPoint: "gsutil rsync /in ${output_path}"
+    entrypoint: "gsutil rsync /in ${output_path}"
     inputStages:
       - rose
       - protect
+```
+
+Example execution definition for the workflow above:
+```yaml
+name: "test-run-mvn"
+params:
+  patient_id: "pid"
+  primary_tumor_doids: "162"
+  orange_path: "gs://run-colo829v003r-colo829v003t-ned-lcm-testing/orange/results/"
+  output_path: "gs://test-run-mvn/"
 ```
