@@ -1,0 +1,31 @@
+name: reporting-pipeline
+version: "1.0.0-alpha.1"
+params:
+  - patient_id
+  - primary_tumor_doids
+  - orange_path
+  - output_path
+stages:
+  - name: orange
+    image: "eu.gcr.io/hmf-build/google/cloud-sdk"
+    version: "425.0.0"
+    entrypoint: "gsutil rsync ${orange_path} /out"
+  - name: rose
+    image: "eu.gcr.io/hmf-build/rose"
+    version: "latest"
+    arguments: "-patient_id ${patient_id}"
+    inputStages:
+      - orange
+  - name: protect
+    image: "eu.gcr.io/hmf-build/protect"
+    version: "latest"
+    arguments: "-primary_tumor_doids ${primary_tumor_doids}"
+    inputStages:
+      - orange
+  - name: output
+    image: "eu.gcr.io/hmf-build/google/cloud-sdk"
+    version: "425.0.0"
+    entrypoint: "gsutil rsync /in ${output_path}"
+    inputStages:
+      - rose
+      - protect
