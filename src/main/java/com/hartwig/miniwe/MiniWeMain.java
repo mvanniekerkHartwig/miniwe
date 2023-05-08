@@ -56,8 +56,12 @@ public class MiniWeMain implements Callable<Integer> {
             var executionGraph = new ExecutionGraph(miniWdl);
 
             LOGGER.info("Starting execution graph.");
-            var dotGraph = executionGraph.start(executorService, kubernetesStageScheduler).get();
-            LOGGER.info("Finished running execution graph. Final result: {}", dotGraph);
+            var success = executionGraph.start(executorService, kubernetesStageScheduler).get();
+            LOGGER.info("Finished running execution graph. Final result: {}.", success ? "Success" : "Failed");
+            if (success) {
+                LOGGER.info("Cleaning up resources");
+                kubernetesStageScheduler.cleanup();
+            }
             return 0;
         } catch (Exception e) {
             LOGGER.error("Unexpected exception", e);
