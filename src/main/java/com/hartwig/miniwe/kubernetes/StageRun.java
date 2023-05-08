@@ -1,7 +1,5 @@
 package com.hartwig.miniwe.kubernetes;
 
-import java.io.Closeable;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -11,13 +9,12 @@ import org.slf4j.LoggerFactory;
 
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
-import io.fabric8.kubernetes.api.model.batch.v1.JobCondition;
 import io.fabric8.kubernetes.api.model.batch.v1.JobStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.ScalableResource;
 
-public class StageRun implements Closeable {
+public class StageRun {
     private static final Logger LOGGER = LoggerFactory.getLogger(StageRun.class);
+    private static final int STAGE_TIMEOUT_MINUTES = 15;
 
     private final PersistentVolumeClaim persistentVolumeClaim;
     private final Job job;
@@ -44,15 +41,11 @@ public class StageRun implements Closeable {
         var jobResource = client.batch().v1().jobs().inNamespace(namespace).resource(job);
         jobResource.waitUntilCondition(r -> {
             var status = r.getStatus();
-            if (status != null) {
-                if (status.getFailed() != null && status.getFailed() > 1) {
-                    return true;
-                } else if (status.getSucceeded() != null && status.getSucceeded() > 0) {
-                    return true;
-                }
+            if (status == null) {
+                return false;
             }
-            return false;
-        }, 15, TimeUnit.MINUTES);
+            return Objects.equals(status.getFailed(), 2) || Objects.equals(status.getSucceeded(), 1);
+        }, STAGE_TIMEOUT_MINUTES, TimeUnit.MINUTES);
         return Optional.ofNullable(jobResource.get())
                 .map(Job::getStatus)
                 .map(JobStatus::getSucceeded)
@@ -60,9 +53,11 @@ public class StageRun implements Closeable {
                 .orElse(false);
     }
 
-    @Override
-    public void close() {
+    public void cleanup() {
         LOGGER.info("Cleaning up run...");
+        var pvcName = persistentVolumeClaim.getMetadata().getName();
+        client.persistentVolumeClaims().inNamespace(namespace).resource(persistentVolumeClaim).delete();
+        LOGGER.info("Deleted Persistent volume claim with name {}", pvcName);
         var jobName = job.getMetadata().getName();
         client.batch().v1().jobs().inNamespace(namespace).resource(job).delete();
         LOGGER.info("Deleted job with name {}", jobName);

@@ -1,7 +1,9 @@
 package com.hartwig.miniwe.kubernetes;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 
 import com.hartwig.miniwe.miniwdl.MiniWdl;
@@ -18,6 +20,7 @@ public class KubernetesStageScheduler implements StageScheduler {
     private static final Logger LOGGER = LoggerFactory.getLogger(KubernetesStageScheduler.class);
     public static final int DEFAULT_STORAGE_SIZE_GI = 1;
 
+    private final Collection<StageRun> completedStages = new ConcurrentLinkedQueue<>();
     private final String namespace;
     private final ExecutionDefinition executionDefinition;
     private final MiniWdl miniWdl;
@@ -41,7 +44,8 @@ public class KubernetesStageScheduler implements StageScheduler {
             var stage = replaced(getStage(stageName), executionDefinition.params());
             var runName = executionDefinition.name();
             var definition = new StageDefinition(stage, runName, miniWdl.name(), namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName);
-            try (var run = definition.submit(kubernetesClient)) {
+            var run = definition.submit(kubernetesClient);
+            try {
                 run.start();
                 var result = run.waitUntilComplete();
                 LOGGER.info("Stage [{}] completed with status [{}]", definition.getStageName(), result ? "Success" : "Failed");
@@ -49,8 +53,16 @@ public class KubernetesStageScheduler implements StageScheduler {
             } catch (Exception e) {
                 LOGGER.error("Stage [{}] failed with", definition.getStageName(), e);
                 return false;
+            } finally {
+                completedStages.add(run);
             }
         }, executor);
+    }
+
+    public void cleanup() {
+        for (final StageRun completedStage : this.completedStages) {
+            completedStage.cleanup();
+        }
     }
 
     private Stage getStage(final String stageName) {

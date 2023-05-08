@@ -29,10 +29,8 @@ public class StageDefinition {
     private final String stageName;
     private final PersistentVolumeClaim outputPvc;
     private final Job job;
-    private final String serviceAccountName;
 
     public StageDefinition(Stage stage, String runName, String workflowName, String namespace, int storageSizeGi, String serviceAccountName) {
-        this.serviceAccountName = serviceAccountName;
         this.namespace = namespace;
         var imageName = String.format("%s:%s", stage.image(), stage.version());
 
