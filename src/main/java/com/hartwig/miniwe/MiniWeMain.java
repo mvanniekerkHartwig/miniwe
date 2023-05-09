@@ -10,7 +10,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.google.cloud.storage.StorageOptions;
+import com.hartwig.miniwe.gcloud.storage.GcloudStorageProvider;
 import com.hartwig.miniwe.kubernetes.KubernetesStageScheduler;
+import com.hartwig.miniwe.kubernetes.KubernetesUtil;
 import com.hartwig.miniwe.miniwdl.MiniWdl;
 import com.hartwig.miniwe.workflow.ExecutionDefinition;
 import com.hartwig.miniwe.workflow.ExecutionGraph;
@@ -43,16 +46,33 @@ public class MiniWeMain implements Callable<Integer> {
                         description = "Name of the kubernetes job service account")
     private String kubernetesServiceAccountName;
 
+    @CommandLine.Option(names = { "--gcp-project-id" },
+                        description = "Name of the GCP project ID")
+    private String gcpProjectId;
+
+    @CommandLine.Option(names = { "--gcp-region" },
+                        description = "Name of the GCP region")
+    private String gcpRegion;
+
     @Override
     public Integer call() {
-        try (var kubernetesClient = new KubernetesClientBuilder().build()) {
+        try (var kubernetesClient = new KubernetesClientBuilder().build();
+                var gcloudStorage = StorageOptions.newBuilder().setProjectId(gcpProjectId).build().getService()) {
             ObjectMapper mapper = getObjectMapper();
             var executionDefinition = mapper.readValue(new File(executionDefinitionYaml), ExecutionDefinition.class);
             var miniWdl = mapper.readValue(new File(workflowDescriptionYaml), MiniWdl.class);
 
+            var bucketName = KubernetesUtil.toValidRFC1123Label("run", miniWdl.name(), executionDefinition.name());
+            var storageProvider = GcloudStorageProvider.create(gcloudStorage, gcpRegion, bucketName);
+
             var executorService = Executors.newFixedThreadPool(16);
-            var kubernetesStageScheduler =
-                    new KubernetesStageScheduler(kubernetesNamespace, executionDefinition, miniWdl, executorService, kubernetesClient, kubernetesServiceAccountName);
+            var kubernetesStageScheduler = new KubernetesStageScheduler(kubernetesNamespace,
+                    executionDefinition,
+                    miniWdl,
+                    executorService,
+                    kubernetesClient,
+                    kubernetesServiceAccountName,
+                    storageProvider);
             var executionGraph = new ExecutionGraph(miniWdl);
 
             LOGGER.info("Starting execution graph.");
@@ -61,6 +81,7 @@ public class MiniWeMain implements Callable<Integer> {
             if (success) {
                 LOGGER.info("Cleaning up resources");
                 kubernetesStageScheduler.cleanup();
+                storageProvider.cleanup();
             }
             return 0;
         } catch (Exception e) {
