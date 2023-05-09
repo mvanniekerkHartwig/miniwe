@@ -27,15 +27,18 @@ public class KubernetesStageScheduler implements StageScheduler {
     private final ExecutorService executor;
     private final KubernetesClient kubernetesClient;
     private final String serviceAccountName;
+    private final StorageProvider storageProvider;
 
     public KubernetesStageScheduler(final String namespace, final ExecutionDefinition executionDefinition, final MiniWdl miniWdl,
-            final ExecutorService executor, final KubernetesClient kubernetesClient, final String serviceAccountName) {
+            final ExecutorService executor, final KubernetesClient kubernetesClient, final String serviceAccountName,
+            final StorageProvider storageProvider) {
         this.serviceAccountName = serviceAccountName;
         this.namespace = namespace;
         this.executionDefinition = executionDefinition;
         this.miniWdl = miniWdl;
         this.executor = executor;
         this.kubernetesClient = kubernetesClient;
+        this.storageProvider = storageProvider;
     }
 
     @Override
@@ -43,7 +46,13 @@ public class KubernetesStageScheduler implements StageScheduler {
         return CompletableFuture.supplyAsync(() -> {
             var stage = replaced(getStage(stageName), executionDefinition.params());
             var runName = executionDefinition.name();
-            var definition = new StageDefinition(stage, runName, miniWdl.name(), namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName);
+            var definition = new StageDefinition(stage,
+                    runName,
+                    miniWdl.name(),
+                    namespace,
+                    DEFAULT_STORAGE_SIZE_GI,
+                    serviceAccountName,
+                    storageProvider);
             var run = definition.submit(kubernetesClient);
             try {
                 run.start();

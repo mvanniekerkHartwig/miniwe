@@ -16,23 +16,19 @@ public class StageRun {
     private static final Logger LOGGER = LoggerFactory.getLogger(StageRun.class);
     private static final int STAGE_TIMEOUT_MINUTES = 15;
 
-    private final PersistentVolumeClaim persistentVolumeClaim;
     private final Job job;
     private final String namespace;
 
     private final KubernetesClient client;
 
-    public StageRun(final PersistentVolumeClaim persistentVolumeClaim, final Job job, final String namespace,
+    public StageRun(final Job job, final String namespace,
             final KubernetesClient client) {
-        this.persistentVolumeClaim = persistentVolumeClaim;
         this.job = job;
         this.namespace = namespace;
         this.client = client;
     }
 
     public void start() {
-        client.persistentVolumeClaims().resource(persistentVolumeClaim).create();
-        LOGGER.info("Created Persistent volume claim with name {}", persistentVolumeClaim.getMetadata().getName());
         client.batch().v1().jobs().inNamespace(namespace).resource(job).create();
         LOGGER.info("Created job with name {}", job.getMetadata().getName());
     }
@@ -55,9 +51,6 @@ public class StageRun {
 
     public void cleanup() {
         LOGGER.info("Cleaning up run...");
-        var pvcName = persistentVolumeClaim.getMetadata().getName();
-        client.persistentVolumeClaims().inNamespace(namespace).resource(persistentVolumeClaim).delete();
-        LOGGER.info("Deleted Persistent volume claim with name {}", pvcName);
         var jobName = job.getMetadata().getName();
         client.batch().v1().jobs().inNamespace(namespace).resource(job).delete();
         LOGGER.info("Deleted job with name {}", jobName);
