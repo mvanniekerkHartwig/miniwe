@@ -4,7 +4,9 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -35,12 +37,12 @@ public class ExecutionGraph {
         this.pipeline = pipeline;
     }
 
-    public CompletableFuture<Boolean> start(ExecutorService executorService, StageScheduler stageScheduler) {
+    public CompletableFuture<Boolean> start(ExecutorService executorService, StageScheduler stageScheduler, Set<String> cachedStages) {
         if (run != null) {
             LOGGER.warn("Run was already started. Cannot start a new run for this execution graph.");
             return CompletableFuture.completedFuture(null);
         }
-        run = new ExecutionGraphRun(createGraph(), executorService, stageScheduler);
+        run = new ExecutionGraphRun(createGraph(), executorService, stageScheduler, cachedStages);
         return run.start();
     }
 
@@ -82,11 +84,17 @@ public class ExecutionGraph {
         private final StageScheduler stageScheduler;
 
         public ExecutionGraphRun(final DefaultDirectedGraph<Stage, NamedEdge> g, final ExecutorService executorService,
-                final StageScheduler stageScheduler) {
+                final StageScheduler stageScheduler, final Set<String> doneStages) {
             fullGraph = g;
             runGraph = (DefaultDirectedGraph<Stage, NamedEdge>) g.clone();
             for (final Stage stage : g.vertexSet()) {
-                stageTagToRunningState.put(stage.name(), StageRunningState.WAITING);
+                if (doneStages.contains(stage.name())) {
+                    LOGGER.info("Ignoring stage [{}] since the result was cached in a previous run.", stage.name());
+                    runGraph.removeVertex(stage);
+                    stageTagToRunningState.put(stage.name(), StageRunningState.IGNORED);
+                } else {
+                    stageTagToRunningState.put(stage.name(), StageRunningState.WAITING);
+                }
             }
             this.executorService = executorService;
             this.stageScheduler = stageScheduler;
@@ -119,11 +127,12 @@ public class ExecutionGraph {
                 stageTagToRunningState.put(stage.name(), StageRunningState.RUNNING);
                 stageScheduler.schedule(stage.name()).thenAccept(result -> stageDoneQueue.add(Pair.of(stage, result)));
             }
-            LOGGER.info("Execution graph updated: {}", toDotFormat());
+            if (!readyStages.isEmpty()) {
+                LOGGER.info("Execution graph updated: {}", toDotFormat());
+            }
         }
 
         private void onStageDone(Stage stage, boolean success) {
-            LOGGER.info("Finished running stage {}, result was {}", stage.name(), success ? "Success" : "Fail");
             if (!success) {
                 var iterator = new DepthFirstIterator<>(runGraph, stage);
                 var ignoredStages = new ArrayList<Stage>();
@@ -139,6 +148,7 @@ public class ExecutionGraph {
                 runGraph.removeVertex(stage);
                 stageTagToRunningState.put(stage.name(), StageRunningState.SUCCESS);
             }
+            LOGGER.info("Execution graph updated: {}", toDotFormat());
         }
 
         public String toDotFormat() {
