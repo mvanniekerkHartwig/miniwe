@@ -1,7 +1,10 @@
 package com.hartwig.miniwe.gcloud.storage;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
@@ -36,6 +39,14 @@ public class GcloudStorageProvider implements StorageProvider {
 
     public void cleanup() {
         bucket.delete();
+    }
+
+    public Set<String> getCachedStages() {
+        return bucket.list(Storage.BlobListOption.currentDirectory())
+                .streamAll()
+                .filter(blob -> blob.getName().endsWith("/"))
+                .map(blob -> blob.getName().substring(0, blob.getName().length() - 1))
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     @Override

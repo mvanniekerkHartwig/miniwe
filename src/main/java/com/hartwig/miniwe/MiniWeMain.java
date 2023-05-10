@@ -64,6 +64,7 @@ public class MiniWeMain implements Callable<Integer> {
 
             var bucketName = KubernetesUtil.toValidRFC1123Label("run", miniWdl.name(), executionDefinition.name());
             var storageProvider = GcloudStorageProvider.create(gcloudStorage, gcpRegion, bucketName);
+            var cachedStages = storageProvider.getCachedStages();
 
             var executorService = Executors.newFixedThreadPool(16);
             var kubernetesStageScheduler = new KubernetesStageScheduler(kubernetesNamespace,
@@ -76,7 +77,7 @@ public class MiniWeMain implements Callable<Integer> {
             var executionGraph = new ExecutionGraph(miniWdl);
 
             LOGGER.info("Starting execution graph.");
-            var success = executionGraph.start(executorService, kubernetesStageScheduler).get();
+            var success = executionGraph.start(executorService, kubernetesStageScheduler, cachedStages).get();
             LOGGER.info("Finished running execution graph. Final result: {}.", success ? "Success" : "Failed");
             if (success) {
                 LOGGER.info("Cleaning up resources");
