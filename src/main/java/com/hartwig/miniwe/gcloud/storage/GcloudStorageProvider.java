@@ -23,9 +23,14 @@ public class GcloudStorageProvider implements StorageProvider {
     }
 
     public static GcloudStorageProvider create(Storage storage, String gcpRegion, String bucketName) {
-        var bucketInfo = BucketInfo.newBuilder(bucketName).setLocation(gcpRegion).build();
-        var bucket = storage.create(bucketInfo);
-        LOGGER.info("Created run bucket [{}] in project [{}]", bucketName, storage.getOptions().getProjectId());
+        var bucket = storage.get(bucketName);
+        if (bucket != null) {
+            LOGGER.warn("Bucket [{}] already exists. Reusing it.", bucketName);
+        } else {
+            var bucketInfo = BucketInfo.newBuilder(bucketName).setLocation(gcpRegion).build();
+            bucket = storage.create(bucketInfo);
+            LOGGER.info("Created run bucket [{}] in project [{}]", bucketName, storage.getOptions().getProjectId());
+        }
         return new GcloudStorageProvider(bucket);
     }
 
@@ -44,11 +49,11 @@ public class GcloudStorageProvider implements StorageProvider {
 
     @Override
     public Container exitStorageContainer(String outputStage, String volumeName) {
-        return new ContainerBuilder().withName(outputStage + "-output")
+        return new ContainerBuilder().withName(outputStage + "-copier")
                 .withImage("eu.gcr.io/hmf-build/google/cloud-sdk:425.0.0")
                 .withCommand("sh",
                         "-c",
-                        String.format("until [ -f /out/ready ]; do sleep 1; done && gsutil rsync /out gs://%s/%s", bucket.getName(), outputStage))
+                        String.format("gsutil rsync /out gs://%s/%s", bucket.getName(), outputStage))
                 .withVolumeMounts(new VolumeMountBuilder().withName(volumeName).withMountPath("/out").build())
                 .build();
     }
