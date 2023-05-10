@@ -16,24 +16,42 @@ public class StageRun {
     private static final Logger LOGGER = LoggerFactory.getLogger(StageRun.class);
     private static final int STAGE_TIMEOUT_MINUTES = 15;
 
+    private final PersistentVolumeClaim persistentVolumeClaim;
     private final Job job;
+    private final Job onCompleteCopyJob;
     private final String namespace;
 
     private final KubernetesClient client;
 
-    public StageRun(final Job job, final String namespace,
+    public StageRun(final PersistentVolumeClaim persistentVolumeClaim, final Job job, final Job onCompleteCopyJob, final String namespace,
             final KubernetesClient client) {
+        this.persistentVolumeClaim = persistentVolumeClaim;
         this.job = job;
+        this.onCompleteCopyJob = onCompleteCopyJob;
         this.namespace = namespace;
         this.client = client;
     }
 
     public void start() {
+        cleanup();
+        client.persistentVolumeClaims().resource(persistentVolumeClaim).create();
+        LOGGER.info("Created persistent volume claim with name [{}]", persistentVolumeClaim.getMetadata().getName());
+
         client.batch().v1().jobs().inNamespace(namespace).resource(job).create();
-        LOGGER.info("Created job with name {}", job.getMetadata().getName());
+        LOGGER.info("Created job with name [{}]", job.getMetadata().getName());
     }
 
     public boolean waitUntilComplete() {
+        var jobSucceeded = waitUntilJobComplete(job);
+        if (!jobSucceeded) {
+            return false;
+        }
+        client.batch().v1().jobs().inNamespace(namespace).resource(onCompleteCopyJob).create();
+        LOGGER.info("Created on complete copy job with name [{}]", onCompleteCopyJob.getMetadata().getName());
+        return waitUntilJobComplete(onCompleteCopyJob);
+    }
+
+    private boolean waitUntilJobComplete(final Job job) {
         var jobResource = client.batch().v1().jobs().inNamespace(namespace).resource(job);
         jobResource.waitUntilCondition(r -> {
             var status = r.getStatus();
@@ -50,9 +68,25 @@ public class StageRun {
     }
 
     public void cleanup() {
-        LOGGER.info("Cleaning up run...");
-        var jobName = job.getMetadata().getName();
-        client.batch().v1().jobs().inNamespace(namespace).resource(job).delete();
-        LOGGER.info("Deleted job with name {}", jobName);
+        LOGGER.info("Cleaning up resources for job [{}]...", job.getMetadata().getName());
+        deleteIfExists(job);
+        deleteIfExists(onCompleteCopyJob);
+        deleteIfExists(persistentVolumeClaim);
+    }
+
+    private void deleteIfExists(final Job job) {
+        var jobResource = client.batch().v1().jobs().inNamespace(namespace).resource(job);
+        if (jobResource.get() != null) {
+            LOGGER.info("Deleting job with name [{}]", job.getMetadata().getName());
+            jobResource.withTimeout(30, TimeUnit.SECONDS).delete();
+        }
+    }
+
+    private void deleteIfExists(final PersistentVolumeClaim pvc) {
+        var pvcResource = client.persistentVolumeClaims().resource(pvc);
+        if (pvcResource.get() != null) {
+            LOGGER.info("Deleting persistent volume with name [{}]", pvc.getMetadata().getName());
+            pvcResource.withTimeout(30, TimeUnit.SECONDS).delete();
+        }
     }
 }
