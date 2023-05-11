@@ -1,4 +1,4 @@
-name: reporting-pipeline
+name: "reporting-pipeline"
 version: "1.0.0-alpha.1"
 params:
   - patient_id

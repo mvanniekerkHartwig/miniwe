@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.hartwig.miniwe.miniwdl.Stage;
+import com.hartwig.miniwe.workflow.ExecutionStage;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
@@ -32,12 +33,13 @@ public class StageDefinition {
     private final Job job;
     private final Job onCompleteCopyJob;
 
-    public StageDefinition(Stage stage, String runName, String workflowName, String namespace, int storageSizeGi, String serviceAccountName,
-            StorageProvider storageProvider) {
+    public StageDefinition(ExecutionStage executionStage, String namespace, int storageSizeGi,
+            String serviceAccountName, StorageProvider storageProvider) {
         this.namespace = namespace;
+        var stage = executionStage.stage();
         var imageName = String.format("%s:%s", stage.image(), stage.version());
 
-        this.stageName = KubernetesUtil.toValidRFC1123Label(workflowName, runName, stage.name());
+        this.stageName = KubernetesUtil.toValidRFC1123Label(executionStage.runName(), stage.name());
 
         var args = stage.arguments().map(arguments -> List.of(arguments.split(" ")));
         var entrypoint = stage.entrypoint().map(a -> List.of(a.split(" ")));
@@ -46,7 +48,7 @@ public class StageDefinition {
         List<VolumeMount> mounts = new ArrayList<>();
         List<Container> initContainers = new ArrayList<>();
         for (final String inputStage : stage.inputStages()) {
-            var volumeName = KubernetesUtil.toValidRFC1123Label(workflowName, runName, inputStage, "volume");
+            var volumeName = KubernetesUtil.toValidRFC1123Label(executionStage.runName(), inputStage, "volume");
 
             volumes.add(new VolumeBuilder().withName(volumeName).withNewEmptyDir().and().build());
             mounts.add(new VolumeMountBuilder().withName(volumeName).withMountPath("/in/" + inputStage).build());

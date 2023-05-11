@@ -1,14 +1,11 @@
 package com.hartwig.miniwe.kubernetes;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 
-import com.hartwig.miniwe.miniwdl.MiniWdl;
-import com.hartwig.miniwe.miniwdl.Stage;
-import com.hartwig.miniwe.workflow.ExecutionDefinition;
+import com.hartwig.miniwe.workflow.ExecutionStage;
 import com.hartwig.miniwe.workflow.StageScheduler;
 
 import org.slf4j.Logger;
@@ -22,37 +19,24 @@ public class KubernetesStageScheduler implements StageScheduler {
 
     private final Collection<StageRun> completedStages = new ConcurrentLinkedQueue<>();
     private final String namespace;
-    private final ExecutionDefinition executionDefinition;
-    private final MiniWdl miniWdl;
     private final ExecutorService executor;
     private final KubernetesClient kubernetesClient;
     private final String serviceAccountName;
     private final StorageProvider storageProvider;
 
-    public KubernetesStageScheduler(final String namespace, final ExecutionDefinition executionDefinition, final MiniWdl miniWdl,
-            final ExecutorService executor, final KubernetesClient kubernetesClient, final String serviceAccountName,
-            final StorageProvider storageProvider) {
+    public KubernetesStageScheduler(final String namespace, final ExecutorService executor, final KubernetesClient kubernetesClient,
+            final String serviceAccountName, final StorageProvider storageProvider) {
         this.serviceAccountName = serviceAccountName;
         this.namespace = namespace;
-        this.executionDefinition = executionDefinition;
-        this.miniWdl = miniWdl;
         this.executor = executor;
         this.kubernetesClient = kubernetesClient;
         this.storageProvider = storageProvider;
     }
 
     @Override
-    public CompletableFuture<Boolean> schedule(final String stageName) {
+    public CompletableFuture<Boolean> schedule(final ExecutionStage executionStage) {
         return CompletableFuture.supplyAsync(() -> {
-            var stage = replaced(getStage(stageName), executionDefinition.params());
-            var runName = executionDefinition.name();
-            var definition = new StageDefinition(stage,
-                    runName,
-                    miniWdl.name(),
-                    namespace,
-                    DEFAULT_STORAGE_SIZE_GI,
-                    serviceAccountName,
-                    storageProvider);
+            var definition = new StageDefinition(executionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
             var run = definition.submit(kubernetesClient);
             try {
                 run.start();
@@ -72,30 +56,5 @@ public class KubernetesStageScheduler implements StageScheduler {
         for (final StageRun completedStage : this.completedStages) {
             completedStage.cleanup();
         }
-    }
-
-    private Stage getStage(final String stageName) {
-        return miniWdl.stages()
-                .stream()
-                .filter(s -> s.name().equals(stageName))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(String.format("Invalid stage name '%s' for definition: %s",
-                        stageName,
-                        miniWdl)));
-    }
-
-    private static Stage replaced(final Stage stage, final Map<String, String> map) {
-        var arguments = stage.arguments().map(argument -> replaceKeys(argument, map));
-        var entryPoints = stage.entrypoint().map(entryPoint -> replaceKeys(entryPoint, map));
-        return Stage.builder().from(stage).arguments(arguments).entrypoint(entryPoints).build();
-    }
-
-    private static String replaceKeys(final String input, final Map<String, String> map) {
-        var output = input;
-        for (var entry : map.entrySet()) {
-            var key = "${" + entry.getKey() + "}";
-            output = output.replace(key, entry.getValue());
-        }
-        return output;
     }
 }

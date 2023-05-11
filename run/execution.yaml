@@ -1,4 +1,5 @@
 name: "test-mvn"
+workflow: "reporting-pipeline"
 params:
   patient_id: "pid"
   primary_tumor_doids: "162"

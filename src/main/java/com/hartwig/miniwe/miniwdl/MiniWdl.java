@@ -32,8 +32,4 @@ public interface MiniWdl {
      * List of stages.
      */
     List<Stage> stages();
-
-    static ImmutableMiniWdl.Builder builder() {
-        return ImmutableMiniWdl.builder();
-    }
 }
