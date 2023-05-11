@@ -11,12 +11,13 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.cloud.storage.StorageOptions;
-import com.hartwig.miniwe.gcloud.storage.GcloudStorageProvider;
+import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
 import com.hartwig.miniwe.kubernetes.KubernetesStageScheduler;
 import com.hartwig.miniwe.kubernetes.KubernetesUtil;
 import com.hartwig.miniwe.miniwdl.MiniWdl;
-import com.hartwig.miniwe.workflow.ExecutionDefinition;
-import com.hartwig.miniwe.workflow.ExecutionGraph;
+import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
+import com.hartwig.miniwe.workflow.WorkflowGraph;
+import com.hartwig.miniwe.workflow.WorkflowUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,22 +63,20 @@ public class MiniWeMain implements Callable<Integer> {
             var executionDefinition = mapper.readValue(new File(executionDefinitionYaml), ExecutionDefinition.class);
             var miniWdl = mapper.readValue(new File(workflowDescriptionYaml), MiniWdl.class);
 
-            var bucketName = KubernetesUtil.toValidRFC1123Label("run", miniWdl.name(), executionDefinition.name());
-            var storageProvider = GcloudStorageProvider.create(gcloudStorage, gcpRegion, bucketName);
+            var bucketName = KubernetesUtil.toValidRFC1123Label("run", WorkflowUtil.getRunName(miniWdl, executionDefinition));
+            var storageProvider = GcloudStorage.create(gcloudStorage, gcpRegion, bucketName);
             var cachedStages = storageProvider.getCachedStages();
 
             var executorService = Executors.newFixedThreadPool(16);
             var kubernetesStageScheduler = new KubernetesStageScheduler(kubernetesNamespace,
-                    executionDefinition,
-                    miniWdl,
                     executorService,
                     kubernetesClient,
                     kubernetesServiceAccountName,
                     storageProvider);
-            var executionGraph = new ExecutionGraph(miniWdl);
+            var executionGraph = new WorkflowGraph(miniWdl, executorService);
 
             LOGGER.info("Starting execution graph.");
-            var success = executionGraph.start(executorService, kubernetesStageScheduler, cachedStages).get();
+            var success = executionGraph.start(kubernetesStageScheduler, cachedStages, executionDefinition).get();
             LOGGER.info("Finished running execution graph. Final result: {}.", success ? "Success" : "Failed");
             if (success) {
                 LOGGER.info("Cleaning up resources");

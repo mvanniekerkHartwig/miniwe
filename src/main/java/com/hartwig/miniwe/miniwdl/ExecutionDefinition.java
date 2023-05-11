@@ -1,8 +1,9 @@
-package com.hartwig.miniwe.workflow;
+package com.hartwig.miniwe.miniwdl;
 
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.hartwig.miniwe.workflow.ImmutableExecutionDefinition;
 
 import org.immutables.value.Value;
 

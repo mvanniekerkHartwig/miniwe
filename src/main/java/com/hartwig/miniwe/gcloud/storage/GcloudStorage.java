@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
@@ -17,15 +16,15 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 
-public class GcloudStorageProvider implements StorageProvider {
-    private static final Logger LOGGER = LoggerFactory.getLogger(GcloudStorageProvider.class);
+public class GcloudStorage implements StorageProvider {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GcloudStorage.class);
     private final Bucket bucket;
 
-    private GcloudStorageProvider(final Bucket bucket) {
+    private GcloudStorage(final Bucket bucket) {
         this.bucket = bucket;
     }
 
-    public static GcloudStorageProvider create(Storage storage, String gcpRegion, String bucketName) {
+    public static GcloudStorage create(Storage storage, String gcpRegion, String bucketName) {
         var bucket = storage.get(bucketName);
         if (bucket != null) {
             LOGGER.warn("Bucket [{}] already exists. Reusing it.", bucketName);
@@ -34,7 +33,7 @@ public class GcloudStorageProvider implements StorageProvider {
             bucket = storage.create(bucketInfo);
             LOGGER.info("Created run bucket [{}] in project [{}]", bucketName, storage.getOptions().getProjectId());
         }
-        return new GcloudStorageProvider(bucket);
+        return new GcloudStorage(bucket);
     }
 
     public void cleanup() {
