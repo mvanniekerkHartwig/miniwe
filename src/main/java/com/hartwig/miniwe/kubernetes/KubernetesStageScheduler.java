@@ -53,6 +53,7 @@ public class KubernetesStageScheduler implements StageScheduler {
     }
 
     public void cleanup() {
+        // TODO: Also clean up running resources...
         for (final StageRun completedStage : this.completedStages) {
             completedStage.cleanup();
         }

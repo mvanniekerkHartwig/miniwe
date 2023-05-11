@@ -2,7 +2,7 @@ package com.hartwig.miniwe;
 
 import java.io.File;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -12,12 +12,9 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.cloud.storage.StorageOptions;
 import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
-import com.hartwig.miniwe.kubernetes.KubernetesStageScheduler;
-import com.hartwig.miniwe.kubernetes.KubernetesUtil;
-import com.hartwig.miniwe.miniwdl.MiniWdl;
+import com.hartwig.miniwe.kubernetes.KubernetesEnvironment;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
-import com.hartwig.miniwe.workflow.WorkflowGraph;
-import com.hartwig.miniwe.workflow.WorkflowUtil;
+import com.hartwig.miniwe.miniwdl.MiniWdl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,25 +60,19 @@ public class MiniWeMain implements Callable<Integer> {
             var executionDefinition = mapper.readValue(new File(executionDefinitionYaml), ExecutionDefinition.class);
             var miniWdl = mapper.readValue(new File(workflowDescriptionYaml), MiniWdl.class);
 
-            var bucketName = KubernetesUtil.toValidRFC1123Label("run", WorkflowUtil.getRunName(miniWdl, executionDefinition));
-            var storageProvider = GcloudStorage.create(gcloudStorage, gcpRegion, bucketName);
-            var cachedStages = storageProvider.getCachedStages();
+            var executorService = ForkJoinPool.commonPool();
+            var storage = new GcloudStorage(gcloudStorage, gcpRegion);
+            var kubernetesEnvironment =
+                    new KubernetesEnvironment(kubernetesNamespace, executorService, kubernetesClient, kubernetesServiceAccountName);
+            var miniWorkflowEngine = new MiniWorkflowEngine(storage, kubernetesEnvironment, executorService);
 
-            var executorService = Executors.newFixedThreadPool(16);
-            var kubernetesStageScheduler = new KubernetesStageScheduler(kubernetesNamespace,
-                    executorService,
-                    kubernetesClient,
-                    kubernetesServiceAccountName,
-                    storageProvider);
-            var executionGraph = new WorkflowGraph(miniWdl, executorService);
+            miniWorkflowEngine.addWorkflowDefinition(miniWdl);
 
             LOGGER.info("Starting execution graph.");
-            var success = executionGraph.start(kubernetesStageScheduler, cachedStages, executionDefinition).get();
+            var success = miniWorkflowEngine.findOrStartWorkflowExecution(executionDefinition).get();
             LOGGER.info("Finished running execution graph. Final result: {}.", success ? "Success" : "Failed");
             if (success) {
-                LOGGER.info("Cleaning up resources");
-                kubernetesStageScheduler.cleanup();
-                storageProvider.cleanup();
+                miniWorkflowEngine.cleanupWorkflowExecution(executionDefinition);
             }
             return 0;
         } catch (Exception e) {

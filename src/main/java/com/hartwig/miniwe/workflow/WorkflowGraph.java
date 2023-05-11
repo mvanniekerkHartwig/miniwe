@@ -38,17 +38,25 @@ public class WorkflowGraph {
         this.executorService = executorService;
     }
 
-    public CompletableFuture<Boolean> start(StageScheduler stageScheduler, Set<String> cachedStages,
+    public CompletableFuture<Boolean> findOrStart(StageScheduler stageScheduler, Set<String> cachedStages,
             ExecutionDefinition executionDefinition) {
-        var runName = WorkflowUtil.getRunName(pipeline, executionDefinition);
-        if (runsByName.get(runName) != null) {
-            LOGGER.warn("Run was already started. Cannot start a new run with run name '{}' for this execution graph.", runName);
-            return CompletableFuture.completedFuture(false);
+        var runName = WorkflowUtil.getRunName(executionDefinition);
+        if (runsByName.containsKey(runName)) {
+            LOGGER.warn("Run was already registered. Cannot start a new run with run name '{}' for this execution graph.", runName);
+            return runsByName.get(runName).doneFuture;
         }
 
         var run = new WorkflowGraphExecution(stageScheduler, cachedStages, executionDefinition);
         runsByName.put(runName, run);
         return run.start();
+    }
+
+    public void deleteWhenDone(String runName) {
+        if (!runsByName.containsKey(runName)) {
+            LOGGER.warn("Could not find execution with run name '{}' to delete.", runName);
+            return;
+        }
+        runsByName.get(runName).doneFuture.whenComplete((r, e) -> runsByName.remove(runName));
     }
 
     public MiniWdl getPipeline() {
@@ -91,6 +99,7 @@ public class WorkflowGraph {
         private final DefaultDirectedGraph<Stage, DefaultEdge> runGraph;
         private final StageScheduler stageScheduler;
         private final ExecutionDefinition executionDefinition;
+        private CompletableFuture<Boolean> doneFuture;
 
         public WorkflowGraphExecution(final StageScheduler stageScheduler, final Set<String> doneStages,
                 final ExecutionDefinition executionDefinition) {
@@ -111,7 +120,7 @@ public class WorkflowGraph {
         }
 
         CompletableFuture<Boolean> start() {
-            return CompletableFuture.supplyAsync(() -> {
+            doneFuture = CompletableFuture.supplyAsync(() -> {
                 LOGGER.info("[{}] Starting execution graph. Looks like: {}", getRunName(), toDotFormat());
                 while (!runGraph.vertexSet().isEmpty()) {
                     runRound();
@@ -124,6 +133,7 @@ public class WorkflowGraph {
                 }
                 return stageTagToRunningState.values().stream().allMatch(state -> state == StageRunningState.SUCCESS);
             }, executorService);
+            return doneFuture;
         }
 
         private void runRound() {
