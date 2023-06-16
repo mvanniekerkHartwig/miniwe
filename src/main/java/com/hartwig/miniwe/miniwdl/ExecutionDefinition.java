@@ -34,4 +34,8 @@ public interface ExecutionDefinition {
      * as an input parameter.
      */
     Map<String, String> params();
+
+    static ImmutableExecutionDefinition.Builder builder() {
+        return ImmutableExecutionDefinition.builder();
+    }
 }

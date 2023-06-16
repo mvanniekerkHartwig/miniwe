@@ -1,0 +1,6 @@
+name: "simple"
+version: "1.0.0"
+stages:
+  - name: "simple-stage"
+    image: "eu.gcr.io/hmf-build/image"
+    version: "1.0.0"

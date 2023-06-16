@@ -34,4 +34,8 @@ public interface WorkflowDefinition {
      * List of stages.
      */
     List<Stage> stages();
+
+    static ImmutableWorkflowDefinition.Builder builder() {
+        return ImmutableWorkflowDefinition.builder();
+    }
 }

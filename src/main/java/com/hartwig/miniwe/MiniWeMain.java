@@ -13,6 +13,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.cloud.storage.StorageOptions;
 import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
 import com.hartwig.miniwe.kubernetes.KubernetesEnvironment;
+import com.hartwig.miniwe.miniwdl.DefinitionReader;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 
@@ -56,9 +57,9 @@ public class MiniWeMain implements Callable<Integer> {
     public Integer call() {
         try (var kubernetesClient = new KubernetesClientBuilder().build();
                 var gcloudStorage = StorageOptions.newBuilder().setProjectId(gcpProjectId).build().getService()) {
-            ObjectMapper mapper = getObjectMapper();
-            var executionDefinition = mapper.readValue(new File(executionDefinitionYaml), ExecutionDefinition.class);
-            var miniWdl = mapper.readValue(new File(workflowDescriptionYaml), WorkflowDefinition.class);
+            var definitionReader = new DefinitionReader();
+            var executionDefinition = definitionReader.readExecution(executionDefinitionYaml);
+            var miniWdl = definitionReader.readWorkflow(workflowDescriptionYaml);
 
             var executorService = ForkJoinPool.commonPool();
             var storage = new GcloudStorage(gcloudStorage, gcpRegion);
