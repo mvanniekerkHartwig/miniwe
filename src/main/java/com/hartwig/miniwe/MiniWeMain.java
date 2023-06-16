@@ -14,7 +14,7 @@ import com.google.cloud.storage.StorageOptions;
 import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
 import com.hartwig.miniwe.kubernetes.KubernetesEnvironment;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
-import com.hartwig.miniwe.miniwdl.MiniWdl;
+import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +58,7 @@ public class MiniWeMain implements Callable<Integer> {
                 var gcloudStorage = StorageOptions.newBuilder().setProjectId(gcpProjectId).build().getService()) {
             ObjectMapper mapper = getObjectMapper();
             var executionDefinition = mapper.readValue(new File(executionDefinitionYaml), ExecutionDefinition.class);
-            var miniWdl = mapper.readValue(new File(workflowDescriptionYaml), MiniWdl.class);
+            var miniWdl = mapper.readValue(new File(workflowDescriptionYaml), WorkflowDefinition.class);
 
             var executorService = ForkJoinPool.commonPool();
             var storage = new GcloudStorage(gcloudStorage, gcpRegion);

@@ -13,7 +13,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
-import com.hartwig.miniwe.miniwdl.MiniWdl;
+import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 import com.hartwig.miniwe.miniwdl.Stage;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -29,12 +29,12 @@ import org.slf4j.LoggerFactory;
 public class WorkflowGraph {
     private static final Logger LOGGER = LoggerFactory.getLogger(WorkflowGraph.class);
 
-    private final MiniWdl pipeline;
+    private final WorkflowDefinition workflowDefinition;
     private final ExecutorService executorService;
     private final Map<String, WorkflowGraphExecution> runsByName = new HashMap<>();
 
-    public WorkflowGraph(final MiniWdl pipeline, final ExecutorService executorService) {
-        this.pipeline = pipeline;
+    public WorkflowGraph(final WorkflowDefinition workflowDefinition, final ExecutorService executorService) {
+        this.workflowDefinition = workflowDefinition;
         this.executorService = executorService;
     }
 
@@ -59,18 +59,18 @@ public class WorkflowGraph {
         runsByName.get(runName).doneFuture.whenComplete((r, e) -> runsByName.remove(runName));
     }
 
-    public MiniWdl getPipeline() {
-        return pipeline;
+    public WorkflowDefinition getWorkflowDefinition() {
+        return workflowDefinition;
     }
 
     private DefaultDirectedGraph<Stage, DefaultEdge> createGraph() {
         var g = new DefaultDirectedGraph<Stage, DefaultEdge>(DefaultEdge.class);
         var stageToName = new HashMap<String, Stage>();
-        for (final Stage stage : pipeline.stages()) {
+        for (final Stage stage : workflowDefinition.stages()) {
             g.addVertex(stage);
             stageToName.put(stage.name(), stage);
         }
-        for (final Stage stage : pipeline.stages()) {
+        for (final Stage stage : workflowDefinition.stages()) {
             for (String input : stage.inputStages()) {
                 g.addEdge(stageToName.get(input), stage, new DefaultEdge());
             }
@@ -145,7 +145,7 @@ public class WorkflowGraph {
             for (Stage stage : readyStages) {
                 LOGGER.info("Starting stage {}", stage.name());
                 stageTagToRunningState.put(stage.name(), StageRunningState.RUNNING);
-                var executionStage = ExecutionStage.from(stage, pipeline, executionDefinition);
+                var executionStage = ExecutionStage.from(stage, workflowDefinition, executionDefinition);
                 stageScheduler.schedule(executionStage).thenAccept(result -> stageDoneQueue.add(Pair.of(stage, result)));
             }
             if (!readyStages.isEmpty()) {
@@ -173,7 +173,7 @@ public class WorkflowGraph {
         }
 
         private String getRunName() {
-            return pipeline.name() + "-" + executionDefinition.name();
+            return workflowDefinition.name() + "-" + executionDefinition.name();
         }
 
         private String toDotFormat() {
