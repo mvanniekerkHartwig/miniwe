@@ -3,6 +3,7 @@ package com.hartwig.miniwe.miniwdl;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import org.immutables.value.Value;
 
@@ -11,8 +12,9 @@ import org.immutables.value.Value;
  */
 @Value.Immutable
 @Value.Style(jdkOnly = true)
-@JsonDeserialize(as = ImmutableMiniWdl.class)
-public interface MiniWdl {
+@JsonDeserialize(as = ImmutableWorkflowDefinition.class)
+@JsonSerialize(as = ImmutableWorkflowDefinition.class)
+public interface WorkflowDefinition {
     /**
      * WDL name, should be unique
      */

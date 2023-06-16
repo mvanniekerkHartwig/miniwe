@@ -4,7 +4,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
-import com.hartwig.miniwe.miniwdl.MiniWdl;
+import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 import com.hartwig.miniwe.miniwdl.Stage;
 
 import org.immutables.value.Value;
@@ -17,7 +17,7 @@ public interface ExecutionStage {
 
     String runName();
 
-    static ExecutionStage from(Stage stage, MiniWdl pipeline, ExecutionDefinition execution) {
+    static ExecutionStage from(Stage stage, WorkflowDefinition pipeline, ExecutionDefinition execution) {
         var replaced = replaced(stage, execution.params());
         return ImmutableExecutionStage.builder().stage(replaced).runName(pipeline.name() + "-" + execution.name()).build();
     }

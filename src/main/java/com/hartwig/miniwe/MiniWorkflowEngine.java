@@ -5,11 +5,10 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
-import com.google.cloud.storage.Storage;
 import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
 import com.hartwig.miniwe.kubernetes.KubernetesEnvironment;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
-import com.hartwig.miniwe.miniwdl.MiniWdl;
+import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 import com.hartwig.miniwe.workflow.WorkflowGraph;
 import com.hartwig.miniwe.workflow.WorkflowUtil;
 
@@ -31,7 +30,7 @@ public class MiniWorkflowEngine {
         this.executorService = executorService;
     }
 
-    public void addWorkflowDefinition(MiniWdl miniWdl) {
+    public void addWorkflowDefinition(WorkflowDefinition miniWdl) {
         if (workflowGraphToName.containsKey(miniWdl.name())) {
             throw new IllegalArgumentException(String.format("Workflow with name '%s' already exists", miniWdl.name()));
         }

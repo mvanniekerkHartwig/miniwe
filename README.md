@@ -42,6 +42,7 @@ stages:
 Example execution definition for the workflow above:
 ```yaml
 name: "test-run-mvn"
+version: "1.0.0-alpha.1"
 params:
   patient_id: "pid"
   primary_tumor_doids: "162"

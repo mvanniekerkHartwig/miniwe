@@ -5,12 +5,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.google.cloud.storage.Bucket;
-import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.hartwig.miniwe.kubernetes.StorageProvider;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
@@ -48,9 +44,7 @@ public class GcloudBucket implements StorageProvider {
     public Container exitStorageContainer(String outputStage, String volumeName) {
         return new ContainerBuilder().withName(outputStage + "-copier")
                 .withImage("eu.gcr.io/hmf-build/google/cloud-sdk:425.0.0")
-                .withCommand("sh",
-                        "-c",
-                        String.format("gsutil rsync /out gs://%s/%s", bucket.getName(), outputStage))
+                .withCommand("sh", "-c", String.format("gsutil rsync /out gs://%s/%s", bucket.getName(), outputStage))
                 .withVolumeMounts(new VolumeMountBuilder().withName(volumeName).withMountPath("/out").build())
                 .build();
     }

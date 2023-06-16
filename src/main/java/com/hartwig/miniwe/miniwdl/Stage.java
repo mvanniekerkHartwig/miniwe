@@ -4,12 +4,14 @@ import java.util.List;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import org.immutables.value.Value;
 
 @Value.Immutable
 @Value.Style(jdkOnly = true)
 @JsonDeserialize(as = ImmutableStage.class)
+@JsonSerialize(as = ImmutableStage.class)
 public interface Stage {
     /**
      * Stage name
