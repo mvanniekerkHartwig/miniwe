@@ -46,7 +46,11 @@ public class MiniWorkflowEngine {
         }
         var bucket = gcloudStorage.findOrCreateBucket(runName);
         var scheduler = kubernetesEnvironment.findOrCreateScheduler(runName, bucket);
-        return workflowGraph.findOrStart(scheduler, bucket.getCachedStages(), executionDefinition);
+        var run = workflowGraph.getOrCreateRun(scheduler, bucket.getCachedStages(), executionDefinition);
+        run.subscribe(stage -> LOGGER.info("[{}] Execution graph updated: {}",
+                WorkflowUtil.getRunName(executionDefinition),
+                run.toDotFormat()));
+        return run.start();
     }
 
     public void cleanupWorkflowExecution(ExecutionDefinition executionDefinition) {

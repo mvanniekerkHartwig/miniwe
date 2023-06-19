@@ -2,19 +2,24 @@ package com.hartwig.miniwe.workflow;
 
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
-import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 import com.hartwig.miniwe.miniwdl.Stage;
+import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.jgrapht.graph.DefaultDirectedGraph;
@@ -31,24 +36,17 @@ public class WorkflowGraph {
 
     private final WorkflowDefinition workflowDefinition;
     private final ExecutorService executorService;
-    private final Map<String, WorkflowGraphExecution> runsByName = new HashMap<>();
+    private final ConcurrentMap<String, WorkflowGraphExecution> runsByName = new ConcurrentHashMap<>();
 
     public WorkflowGraph(final WorkflowDefinition workflowDefinition, final ExecutorService executorService) {
         this.workflowDefinition = workflowDefinition;
         this.executorService = executorService;
     }
 
-    public CompletableFuture<Boolean> findOrStart(StageScheduler stageScheduler, Set<String> cachedStages,
+    public WorkflowGraphExecution getOrCreateRun(StageScheduler stageScheduler, Set<String> cachedStages,
             ExecutionDefinition executionDefinition) {
         var runName = WorkflowUtil.getRunName(executionDefinition);
-        if (runsByName.containsKey(runName)) {
-            LOGGER.warn("Run was already registered. Cannot start a new run with run name '{}' for this execution graph.", runName);
-            return runsByName.get(runName).doneFuture;
-        }
-
-        var run = new WorkflowGraphExecution(stageScheduler, cachedStages, executionDefinition);
-        runsByName.put(runName, run);
-        return run.start();
+        return runsByName.computeIfAbsent(runName, name -> new WorkflowGraphExecution(stageScheduler, cachedStages, executionDefinition));
     }
 
     public void deleteWhenDone(String runName) {
@@ -57,10 +55,6 @@ public class WorkflowGraph {
             return;
         }
         runsByName.get(runName).doneFuture.whenComplete((r, e) -> runsByName.remove(runName));
-    }
-
-    public WorkflowDefinition getWorkflowDefinition() {
-        return workflowDefinition;
     }
 
     private DefaultDirectedGraph<Stage, DefaultEdge> createGraph() {
@@ -78,7 +72,7 @@ public class WorkflowGraph {
         return g;
     }
 
-    private enum StageRunningState {
+    public enum StageRunningState {
         WAITING("black"),
         RUNNING("orange"),
         SUCCESS("green"),
@@ -92,7 +86,7 @@ public class WorkflowGraph {
         }
     }
 
-    private class WorkflowGraphExecution {
+    public class WorkflowGraphExecution {
         private final Map<String, StageRunningState> stageTagToRunningState = new HashMap<>();
         private final BlockingQueue<Pair<Stage, Boolean>> stageDoneQueue = new LinkedBlockingQueue<>();
         private final DefaultDirectedGraph<Stage, DefaultEdge> fullGraph;
@@ -101,7 +95,12 @@ public class WorkflowGraph {
         private final ExecutionDefinition executionDefinition;
         private CompletableFuture<Boolean> doneFuture;
 
-        public WorkflowGraphExecution(final StageScheduler stageScheduler, final Set<String> doneStages,
+        // copy on write map, for viewing the stage state from another thread.
+        private Map<String, StageRunningState> stageStateView;
+        private final List<Consumer<Map<String, StageRunningState>>> stageStateSubscribers =
+                Collections.synchronizedList(new ArrayList<>());
+
+        private WorkflowGraphExecution(final StageScheduler stageScheduler, final Set<String> doneStages,
                 final ExecutionDefinition executionDefinition) {
             fullGraph = createGraph();
             runGraph = createGraph();
@@ -119,9 +118,19 @@ public class WorkflowGraph {
             this.executionDefinition = executionDefinition;
         }
 
-        CompletableFuture<Boolean> start() {
+        /**
+         * Starts the worker thread for this graph execution.
+         *
+         * @return Future that returns true if the whole graph finished successfully, false otherwise.
+         */
+        public synchronized CompletableFuture<Boolean> start() {
+            if (doneFuture != null) {
+                LOGGER.warn("Run was already registered. Cannot start a new run with run name '{}' for this execution graph.",
+                        WorkflowUtil.getRunName(executionDefinition));
+                return doneFuture;
+            }
             doneFuture = CompletableFuture.supplyAsync(() -> {
-                LOGGER.info("[{}] Starting execution graph. Looks like: {}", getRunName(), toDotFormat());
+                updateStageStateView();
                 while (!runGraph.vertexSet().isEmpty()) {
                     runRound();
                     try {
@@ -143,13 +152,12 @@ public class WorkflowGraph {
                     .filter(stage -> stageTagToRunningState.get(stage.name()) == StageRunningState.WAITING)
                     .collect(Collectors.toList());
             for (Stage stage : readyStages) {
-                LOGGER.info("Starting stage {}", stage.name());
                 stageTagToRunningState.put(stage.name(), StageRunningState.RUNNING);
                 var executionStage = ExecutionStage.from(stage, workflowDefinition, executionDefinition);
                 stageScheduler.schedule(executionStage).thenAccept(result -> stageDoneQueue.add(Pair.of(stage, result)));
             }
             if (!readyStages.isEmpty()) {
-                LOGGER.info("[{}] Execution graph updated: {}", getRunName(), toDotFormat());
+                updateStageStateView();
             }
         }
 
@@ -169,25 +177,36 @@ public class WorkflowGraph {
                 runGraph.removeVertex(stage);
                 stageTagToRunningState.put(stage.name(), StageRunningState.SUCCESS);
             }
-            LOGGER.info("[{}] Execution graph updated: {}", getRunName(), toDotFormat());
+            updateStageStateView();
         }
 
-        private String getRunName() {
-            return workflowDefinition.name() + "-" + executionDefinition.name();
+        private void updateStageStateView() {
+            stageStateView = Map.copyOf(stageTagToRunningState);
+            synchronized (stageStateSubscribers) {
+                stageStateSubscribers.forEach(subscriber -> subscriber.accept(stageStateView));
+            }
         }
 
-        private String toDotFormat() {
+        public Map<String, StageRunningState> getStageStateView() {
+            return stageStateView;
+        }
+
+        public String toDotFormat() {
             var exporter = new DOTExporter<Stage, DefaultEdge>();
             exporter.setVertexAttributeProvider((v) -> {
                 Map<String, Attribute> map = new LinkedHashMap<>();
                 var name = v.name();
                 map.put("label", DefaultAttribute.createAttribute(name));
-                map.put("color", DefaultAttribute.createAttribute(stageTagToRunningState.get(name).color));
+                map.put("color", DefaultAttribute.createAttribute(stageStateView.get(name).color));
                 return map;
             });
             var writer = new StringWriter();
             exporter.exportGraph(fullGraph, writer);
             return writer.toString();
+        }
+
+        public void subscribe(Consumer<Map<String, StageRunningState>> subscriber) {
+            this.stageStateSubscribers.add(subscriber);
         }
     }
 }

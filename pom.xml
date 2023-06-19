@@ -16,12 +16,23 @@
 
         <main.class>com.hartwig.miniwe.MiniWeMain</main.class>
 
+        <!-- Build dependencies -->
+        <build.artifactregistry-maven-wagon.version>2.2.1</build.artifactregistry-maven-wagon.version>
+        <build.google-storage-wagon.version>1.0</build.google-storage-wagon.version>
+        <build.maven-assembly-plugin.version>3.5.0</build.maven-assembly-plugin.version>
+        <build.maven-dependency-plugin.version>3.0.2</build.maven-dependency-plugin.version>
+        <build.maven-jar-plugin.version>3.3.0</build.maven-jar-plugin.version>
+        <build.maven-site-plugin.version>3.7.1</build.maven-site-plugin.version>
+        <build.maven-surefire-plugin.version>3.0.0</build.maven-surefire-plugin.version>
+        <build.maven-surefire-report-plugin.version>2.22.0</build.maven-surefire-report-plugin.version>
+
         <apache.log4j.version>2.17.1</apache.log4j.version>
         <immutables.version>2.5.5</immutables.version>
         <jgrapht.core.version>1.5.1</jgrapht.core.version>
         <fabric8.version>6.5.1</fabric8.version>
         <app.picocli.version>4.2.0</app.picocli.version>
         <jackson.version>2.10.0</jackson.version>
+        <test.mockito.version>2.23.4</test.mockito.version>
     </properties>
 
     <repositories>
@@ -118,6 +129,67 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${test.mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>${build.maven-assembly-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>${build.maven-dependency-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>${build.maven-jar-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-site-plugin</artifactId>
+                    <version>${build.maven-site-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${build.maven-surefire-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-report-plugin</artifactId>
+                    <version>${build.maven-surefire-report-plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-report-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-site-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-report-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </reporting>
 </project>

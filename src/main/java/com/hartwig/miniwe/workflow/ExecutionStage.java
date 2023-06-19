@@ -3,6 +3,7 @@ package com.hartwig.miniwe.workflow;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 import com.hartwig.miniwe.miniwdl.Stage;
@@ -12,6 +13,7 @@ import org.immutables.value.Value;
 @Value.Immutable
 @Value.Style(jdkOnly = true)
 @JsonDeserialize(as = ImmutableExecutionStage.class)
+@JsonSerialize(as = ImmutableExecutionStage.class)
 public interface ExecutionStage {
     Stage stage();
 
