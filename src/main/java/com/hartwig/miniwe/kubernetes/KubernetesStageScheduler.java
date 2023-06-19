@@ -40,6 +40,7 @@ public class KubernetesStageScheduler implements StageScheduler {
             var run = definition.submit(kubernetesClient);
             try {
                 run.start();
+                LOGGER.info("Starting stage [{}]", definition.getStageName());
                 var result = run.waitUntilComplete();
                 LOGGER.info("Stage [{}] completed with status [{}]", definition.getStageName(), result ? "Success" : "Failed");
                 return result;
