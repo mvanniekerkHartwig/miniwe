@@ -60,7 +60,7 @@ public class MiniWorkflowEngine {
         if (workflowGraph == null) {
             throw new IllegalArgumentException(String.format("Workflow with name '%s' does not exist.", executionDefinition.workflow()));
         }
-        workflowGraph.deleteWhenDone(runName);
+        workflowGraph.delete(executionDefinition);
         kubernetesEnvironment.deleteScheduledResources(runName);
         gcloudStorage.deleteBucket(runName);
     }

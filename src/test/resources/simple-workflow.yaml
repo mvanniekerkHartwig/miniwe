@@ -1,4 +1,4 @@
-name: "simple"
+name: "wf"
 version: "1.0.0"
 stages:
   - name: "simple-stage"

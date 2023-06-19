@@ -18,8 +18,8 @@ class DefinitionReaderTest {
     @BeforeEach
     void setUp() {
         var classLoader = getClass().getClassLoader();
-        executionInputStream = classLoader.getResourceAsStream("execution.yaml");
-        workFlowInputStream = classLoader.getResourceAsStream("workflow.yaml");
+        executionInputStream = classLoader.getResourceAsStream("real-execution.yaml");
+        workFlowInputStream = classLoader.getResourceAsStream("real-workflow.yaml");
     }
 
     @Test
