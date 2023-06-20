@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.hartwig.miniwe.miniwdl.Stage;
 import com.hartwig.miniwe.workflow.ExecutionStage;
 
 import io.fabric8.kubernetes.api.model.Container;
@@ -22,24 +21,20 @@ import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
 import io.fabric8.kubernetes.api.model.batch.v1.JobSpecBuilder;
-import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.utils.Serialization;
 
 public class StageDefinition {
-
-    private final String namespace;
     private final String stageName;
     private final PersistentVolumeClaim outputPvc;
     private final Job job;
     private final Job onCompleteCopyJob;
 
-    public StageDefinition(ExecutionStage executionStage, String namespace, int storageSizeGi,
-            String serviceAccountName, StorageProvider storageProvider) {
-        this.namespace = namespace;
+    public StageDefinition(ExecutionStage executionStage, String namespace, int storageSizeGi, String serviceAccountName,
+            StorageProvider storageProvider) {
         var stage = executionStage.stage();
         var imageName = String.format("%s:%s", stage.image(), stage.version());
 
-        this.stageName = KubernetesUtil.toValidRFC1123Label(executionStage.runName(), stage.name());
+        this.stageName = ExecutionStage.getName(executionStage);
 
         var args = stage.arguments().map(arguments -> List.of(arguments.split(" ")));
         var entrypoint = stage.entrypoint().map(a -> List.of(a.split(" ")));
@@ -52,7 +47,7 @@ public class StageDefinition {
 
             volumes.add(new VolumeBuilder().withName(volumeName).withNewEmptyDir().and().build());
             mounts.add(new VolumeMountBuilder().withName(volumeName).withMountPath("/in/" + inputStage).build());
-            initContainers.add(storageProvider.initStorageContainer(inputStage, volumeName));
+            initContainers.add(storageProvider.initStorageContainer(executionStage.runName(), inputStage, volumeName));
         }
 
         String outputVolumeName = KubernetesUtil.toValidRFC1123Label(stageName, "volume");
@@ -78,7 +73,7 @@ public class StageDefinition {
 
         // create on complete copy job
         var onCompleteCopyPod = new PodSpecBuilder().withServiceAccountName(serviceAccountName)
-                .withContainers(storageProvider.exitStorageContainer(stage.name(), outputVolumeName))
+                .withContainers(storageProvider.exitStorageContainer(executionStage.runName(), stage.name(), outputVolumeName))
                 .withRestartPolicy("Never")
                 .withVolumes(outputVolume)
                 .build();
@@ -97,8 +92,8 @@ public class StageDefinition {
         return stageName;
     }
 
-    public StageRun submit(KubernetesClient client) {
-        return new StageRun(outputPvc, job, onCompleteCopyJob, namespace, client);
+    public StageRun createStageRun(KubernetesClientWrapper client) {
+        return new StageRun(outputPvc, job, onCompleteCopyJob, client);
     }
 
     @Override

@@ -4,6 +4,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.hartwig.miniwe.kubernetes.KubernetesUtil;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 import com.hartwig.miniwe.miniwdl.Stage;
@@ -18,6 +19,10 @@ public interface ExecutionStage {
     Stage stage();
 
     String runName();
+
+    static String getName(ExecutionStage executionStage) {
+        return KubernetesUtil.toValidRFC1123Label(executionStage.runName(), executionStage.stage().name());
+    }
 
     static ExecutionStage from(Stage stage, ExecutionDefinition execution) {
         var replaced = replaced(stage, execution.params());

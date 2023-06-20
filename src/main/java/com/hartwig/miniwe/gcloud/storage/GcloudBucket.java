@@ -13,7 +13,7 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 
-public class GcloudBucket implements StorageProvider {
+public class GcloudBucket {
     private final Bucket bucket;
 
     public GcloudBucket(final Bucket bucket) {
@@ -32,7 +32,6 @@ public class GcloudBucket implements StorageProvider {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    @Override
     public Container initStorageContainer(String inputStage, String volumeName) {
         var bucketName = Objects.requireNonNull(bucket.getName());
         return new ContainerBuilder().withName(inputStage + "-input")
@@ -42,7 +41,6 @@ public class GcloudBucket implements StorageProvider {
                 .build();
     }
 
-    @Override
     public Container exitStorageContainer(String outputStage, String volumeName) {
         var bucketName = Objects.requireNonNull(bucket.getName());
         return new ContainerBuilder().withName(outputStage + "-copier")

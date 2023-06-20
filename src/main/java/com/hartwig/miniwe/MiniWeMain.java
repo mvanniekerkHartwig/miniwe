@@ -1,21 +1,13 @@
 package com.hartwig.miniwe;
 
-import java.io.File;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ForkJoinPool;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.cloud.storage.StorageOptions;
 import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
-import com.hartwig.miniwe.kubernetes.KubernetesEnvironment;
+import com.hartwig.miniwe.kubernetes.KubernetesClientWrapper;
+import com.hartwig.miniwe.kubernetes.KubernetesStageScheduler;
 import com.hartwig.miniwe.miniwdl.DefinitionReader;
-import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
-import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,21 +51,25 @@ public class MiniWeMain implements Callable<Integer> {
                 var gcloudStorage = StorageOptions.newBuilder().setProjectId(gcpProjectId).build().getService()) {
             var definitionReader = new DefinitionReader();
             var executionDefinition = definitionReader.readExecution(executionDefinitionYaml);
-            var miniWdl = definitionReader.readWorkflow(workflowDescriptionYaml);
+            var workflowDefinition = definitionReader.readWorkflow(workflowDescriptionYaml);
 
             var executorService = ForkJoinPool.commonPool();
             var storage = new GcloudStorage(gcloudStorage, gcpRegion);
-            var kubernetesEnvironment =
-                    new KubernetesEnvironment(kubernetesNamespace, executorService, kubernetesClient, kubernetesServiceAccountName);
-            var miniWorkflowEngine = new MiniWorkflowEngine(storage, kubernetesEnvironment, executorService);
+            var kubernetesClientWrapper = new KubernetesClientWrapper(kubernetesClient);
+            var kubernetesStageScheduler = new KubernetesStageScheduler(kubernetesNamespace,
+                    executorService,
+                    kubernetesClientWrapper,
+                    kubernetesServiceAccountName,
+                    storage);
+            var miniWorkflowEngine = new MiniWorkflowEngine(storage, kubernetesStageScheduler, executorService);
 
-            miniWorkflowEngine.addWorkflowDefinition(miniWdl);
+            miniWorkflowEngine.addWorkflowDefinition(workflowDefinition);
 
             LOGGER.info("Starting execution graph.");
-            var success = miniWorkflowEngine.findOrStartWorkflowExecution(executionDefinition).get();
+            var success = miniWorkflowEngine.findOrStartRun(executionDefinition).get();
             LOGGER.info("Finished running execution graph. Final result: {}.", success ? "Success" : "Failed");
             if (success) {
-                miniWorkflowEngine.cleanupWorkflowExecution(executionDefinition);
+                miniWorkflowEngine.cleanupRun(executionDefinition);
             }
             return 0;
         } catch (Exception e) {
@@ -81,15 +77,6 @@ public class MiniWeMain implements Callable<Integer> {
             return 1;
         }
 
-    }
-
-    private static ObjectMapper getObjectMapper() {
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        mapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true);
-        mapper.registerModule(new Jdk8Module());
-        mapper.registerModule(new JavaTimeModule());
-        return mapper;
     }
 
     public static void main(String[] args) {
