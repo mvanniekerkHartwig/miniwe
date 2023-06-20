@@ -1,0 +1,63 @@
+---
+apiVersion: "v1"
+kind: "PersistentVolumeClaim"
+metadata:
+  name: "wf-ex-simple-stage-volume"
+  namespace: "namespace"
+spec:
+  accessModes:
+  - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "1Gi"
+  storageClassName: "standard"
+---
+apiVersion: "batch/v1"
+kind: "Job"
+metadata:
+  name: "wf-ex-simple-stage"
+  namespace: "namespace"
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      containers:
+      - image: "eu.gcr.io/hmf-build/image:1.0.0"
+        name: "wf-ex-simple-stage"
+        volumeMounts:
+        - mountPath: "/out"
+          name: "wf-ex-simple-stage-volume"
+      restartPolicy: "Never"
+      serviceAccountName: "serviceAccount"
+      volumes:
+      - name: "wf-ex-simple-stage-volume"
+        persistentVolumeClaim:
+          claimName: "wf-ex-simple-stage-volume"
+          readOnly: false
+---
+apiVersion: "batch/v1"
+kind: "Job"
+metadata:
+  name: "wf-ex-simple-stage-cp"
+  namespace: "namespace"
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      containers:
+      - command:
+        - "sh"
+        - "-c"
+        - "gsutil rsync /out gs://bucket-name/simple-stage"
+        image: "eu.gcr.io/hmf-build/google/cloud-sdk:425.0.0"
+        name: "simple-stage-copier"
+        volumeMounts:
+        - mountPath: "/out"
+          name: "wf-ex-simple-stage-volume"
+      restartPolicy: "Never"
+      serviceAccountName: "serviceAccount"
+      volumes:
+      - name: "wf-ex-simple-stage-volume"
+        persistentVolumeClaim:
+          claimName: "wf-ex-simple-stage-volume"
+          readOnly: false

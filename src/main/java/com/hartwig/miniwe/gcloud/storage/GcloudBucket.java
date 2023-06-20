@@ -1,6 +1,7 @@
 package com.hartwig.miniwe.gcloud.storage;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -15,7 +16,7 @@ import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 public class GcloudBucket implements StorageProvider {
     private final Bucket bucket;
 
-    GcloudBucket(final Bucket bucket) {
+    public GcloudBucket(final Bucket bucket) {
         this.bucket = bucket;
     }
 
@@ -33,18 +34,20 @@ public class GcloudBucket implements StorageProvider {
 
     @Override
     public Container initStorageContainer(String inputStage, String volumeName) {
+        var bucketName = Objects.requireNonNull(bucket.getName());
         return new ContainerBuilder().withName(inputStage + "-input")
                 .withImage("eu.gcr.io/hmf-build/google/cloud-sdk:425.0.0")
-                .withCommand(List.of("sh", "-c", String.format("gsutil rsync gs://%s/%s /in", bucket.getName(), inputStage)))
+                .withCommand(List.of("sh", "-c", String.format("gsutil rsync gs://%s/%s /in", bucketName, inputStage)))
                 .withVolumeMounts(new VolumeMountBuilder().withName(volumeName).withMountPath("/in").build())
                 .build();
     }
 
     @Override
     public Container exitStorageContainer(String outputStage, String volumeName) {
+        var bucketName = Objects.requireNonNull(bucket.getName());
         return new ContainerBuilder().withName(outputStage + "-copier")
                 .withImage("eu.gcr.io/hmf-build/google/cloud-sdk:425.0.0")
-                .withCommand("sh", "-c", String.format("gsutil rsync /out gs://%s/%s", bucket.getName(), outputStage))
+                .withCommand("sh", "-c", String.format("gsutil rsync /out gs://%s/%s", bucketName, outputStage))
                 .withVolumeMounts(new VolumeMountBuilder().withName(volumeName).withMountPath("/out").build())
                 .build();
     }
