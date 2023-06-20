@@ -2,21 +2,26 @@ package com.hartwig.miniwe.gcloud.storage;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.hartwig.miniwe.kubernetes.KubernetesUtil;
+import com.hartwig.miniwe.kubernetes.StorageProvider;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class GcloudStorage {
+import io.fabric8.kubernetes.api.model.Container;
+
+public class GcloudStorage implements StorageProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(GcloudStorage.class);
 
     private final Storage storage;
     private final String gcpRegion;
 
-    private final Map<String, GcloudBucket> bucketByRunName = new HashMap<>();
+    private final ConcurrentMap<String, GcloudBucket> bucketByRunName = new ConcurrentHashMap<>();
 
     public GcloudStorage(final Storage storage, final String gcpRegion) {
         this.storage = storage;
@@ -49,5 +54,15 @@ public class GcloudStorage {
         }
         bucket.cleanup();
         LOGGER.info("Deleted bucket for run '{}'", runName);
+    }
+
+    @Override
+    public Container initStorageContainer(final String runName, final String inputStage, final String volumeName) {
+        return findOrCreateBucket(runName).initStorageContainer(inputStage, volumeName);
+    }
+
+    @Override
+    public Container exitStorageContainer(final String runName, final String outputStage, final String volumeName) {
+        return findOrCreateBucket(runName).exitStorageContainer(outputStage, volumeName);
     }
 }

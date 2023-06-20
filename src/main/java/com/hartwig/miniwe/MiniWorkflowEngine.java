@@ -1,12 +1,13 @@
 package com.hartwig.miniwe;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 
 import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
 import com.hartwig.miniwe.kubernetes.KubernetesEnvironment;
+import com.hartwig.miniwe.kubernetes.KubernetesStageScheduler;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 import com.hartwig.miniwe.workflow.WorkflowGraph;
@@ -19,25 +20,25 @@ public class MiniWorkflowEngine {
     private static final Logger LOGGER = LoggerFactory.getLogger(MiniWorkflowEngine.class);
 
     private final GcloudStorage gcloudStorage;
-    private final KubernetesEnvironment kubernetesEnvironment;
+    private final KubernetesStageScheduler kubernetesStageScheduler;
     private final ExecutorService executorService;
-    private final Map<String, WorkflowGraph> workflowGraphToName = new HashMap<>();
+    private final ConcurrentMap<String, WorkflowGraph> workflowGraphToName = new ConcurrentHashMap<>();
 
-    public MiniWorkflowEngine(final GcloudStorage gcloudStorage, final KubernetesEnvironment kubernetesEnvironment,
+    public MiniWorkflowEngine(final GcloudStorage gcloudStorage, final KubernetesStageScheduler kubernetesStageScheduler,
             final ExecutorService executorService) {
         this.gcloudStorage = gcloudStorage;
-        this.kubernetesEnvironment = kubernetesEnvironment;
+        this.kubernetesStageScheduler = kubernetesStageScheduler;
         this.executorService = executorService;
     }
 
-    public void addWorkflowDefinition(WorkflowDefinition miniWdl) {
-        if (workflowGraphToName.containsKey(miniWdl.name())) {
-            throw new IllegalArgumentException(String.format("Workflow with name '%s' already exists", miniWdl.name()));
+    public void addWorkflowDefinition(WorkflowDefinition workflowDefinition) {
+        if (workflowGraphToName.containsKey(workflowDefinition.name())) {
+            throw new IllegalArgumentException(String.format("Workflow with name '%s' already exists", workflowDefinition.name()));
         }
-        workflowGraphToName.put(miniWdl.name(), new WorkflowGraph(miniWdl, executorService));
+        workflowGraphToName.put(workflowDefinition.name(), new WorkflowGraph(workflowDefinition, executorService));
     }
 
-    public CompletableFuture<Boolean> findOrStartWorkflowExecution(ExecutionDefinition executionDefinition) {
+    public CompletableFuture<Boolean> findOrStartRun(ExecutionDefinition executionDefinition) {
         var runName = WorkflowUtil.getRunName(executionDefinition);
         LOGGER.info("[{}] Starting run", runName);
         var workflowGraph = workflowGraphToName.get(executionDefinition.workflow());
@@ -45,13 +46,12 @@ public class MiniWorkflowEngine {
             throw new IllegalArgumentException(String.format("Workflow with name '%s' does not exist.", executionDefinition.workflow()));
         }
         var bucket = gcloudStorage.findOrCreateBucket(runName);
-        var scheduler = kubernetesEnvironment.findOrCreateScheduler(runName, bucket);
-        var run = workflowGraph.getOrCreateRun(scheduler, bucket.getCachedStages(), executionDefinition);
+        var run = workflowGraph.getOrCreateRun(kubernetesStageScheduler, bucket.getCachedStages(), executionDefinition);
         run.subscribe(stage -> LOGGER.info("[{}] Execution graph updated: {}", run.getRunName(), run.toDotFormat()));
         return run.start();
     }
 
-    public void cleanupWorkflowExecution(ExecutionDefinition executionDefinition) {
+    public void cleanupRun(ExecutionDefinition executionDefinition) {
         var runName = WorkflowUtil.getRunName(executionDefinition);
         LOGGER.info("Cleaning up run with name '{}'", runName);
         var workflowGraph = workflowGraphToName.get(executionDefinition.workflow());
@@ -59,7 +59,7 @@ public class MiniWorkflowEngine {
             throw new IllegalArgumentException(String.format("Workflow with name '%s' does not exist.", executionDefinition.workflow()));
         }
         workflowGraph.delete(executionDefinition);
-        kubernetesEnvironment.deleteScheduledResources(runName);
+        kubernetesStageScheduler.deleteStagesForRun(executionDefinition);
         gcloudStorage.deleteBucket(runName);
     }
 }
