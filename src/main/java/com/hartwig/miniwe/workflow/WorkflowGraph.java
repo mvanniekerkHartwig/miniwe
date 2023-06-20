@@ -13,7 +13,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -56,16 +55,21 @@ public class WorkflowGraph {
     }
 
     /**
-     * Deletes the execution. If the execution is running when it is deleted, the run
-     * @param executionDefinition
+     * Deletes the execution. If the execution is running when it is deleted, the run will be cancelled first.
+     *
+     * @param executionDefinition execution definition for the run.
      */
     public void delete(ExecutionDefinition executionDefinition) {
         var runName = WorkflowUtil.getRunName(executionDefinition);
         if (!runsByName.containsKey(runName)) {
             LOGGER.warn("Could not find execution with run name '{}' to delete.", runName);
-            return;
+            throw new IllegalArgumentException(String.format("Could not find execution with run name '%s' to delete.", runName));
         }
-        runsByName.get(runName).doneFuture.whenComplete((r, e) -> runsByName.remove(runName));
+        var run = runsByName.get(runName);
+        if (run.isRunning()) {
+            run.cancel();
+        }
+        runsByName.remove(runName);
     }
 
     private DefaultDirectedGraph<Stage, DefaultEdge> createGraph() {
@@ -98,6 +102,7 @@ public class WorkflowGraph {
     }
 
     public class WorkflowGraphExecution {
+        private final Pair<Stage, Boolean> QUEUE_CANCEL_SIGNAL = Pair.of(null, null);
         private final Map<String, StageRunningState> stageTagToRunningState = new HashMap<>();
         private final BlockingQueue<Pair<Stage, Boolean>> stageDoneQueue = new LinkedBlockingQueue<>();
         private final DefaultDirectedGraph<Stage, DefaultEdge> fullGraph;
@@ -110,25 +115,26 @@ public class WorkflowGraph {
         private Map<String, StageRunningState> stageStateView;
         private final List<Consumer<Map<String, StageRunningState>>> stageStateSubscribers =
                 Collections.synchronizedList(new ArrayList<>());
-        private Future<?> cancellableFuture;
 
         private WorkflowGraphExecution(final StageScheduler stageScheduler, final Set<String> doneStages,
                 final ExecutionDefinition executionDefinition) {
+            this.stageScheduler = stageScheduler;
+            this.executionDefinition = executionDefinition;
             fullGraph = createGraph();
             runGraph = createGraph();
 
             for (final Stage stage : fullGraph.vertexSet()) {
                 if (doneStages.contains(stage.name())) {
-                    LOGGER.info("Ignoring stage [{}] since the result was cached in a previous run.", stage.name());
+                    LOGGER.info("[{}] Marking stage '{}' as success since the result was cached in a previous run.",
+                            getRunName(),
+                            stage.name());
                     runGraph.removeVertex(stage);
-                    stageTagToRunningState.put(stage.name(), StageRunningState.IGNORED);
+                    stageTagToRunningState.put(stage.name(), StageRunningState.SUCCESS);
                 } else {
                     stageTagToRunningState.put(stage.name(), StageRunningState.WAITING);
                 }
             }
             stageStateView = Map.copyOf(stageTagToRunningState);
-            this.stageScheduler = stageScheduler;
-            this.executionDefinition = executionDefinition;
         }
 
         /**
@@ -138,41 +144,45 @@ public class WorkflowGraph {
          */
         public synchronized CompletableFuture<Boolean> start() {
             if (doneFuture != null) {
-                LOGGER.warn("Run was already registered. Cannot start a new run with run name '{}' for this execution graph.",
-                        WorkflowUtil.getRunName(executionDefinition));
+                LOGGER.warn("[{}] Run was already registered. Cannot start a new run with this name.", getRunName());
                 return doneFuture;
             }
-            /*
-             cancelling a CompletableFuture does nothing, see the JavaDoc:
-             > Since (unlike FutureTask) this class has no direct control over the computation that causes it to be completed,
-             > cancellation is treated as just another form of exceptional completion. Method cancel has the same effect as
-             > completeExceptionally(new CancellationException()).
-             Therefore we also store the cancellable "raw" future from the executor service.
-            */
-            doneFuture = new CompletableFuture<>();
-            cancellableFuture = executorService.submit(() -> {
+            doneFuture = CompletableFuture.supplyAsync(() -> {
                 updateStageStateView();
                 while (!runGraph.vertexSet().isEmpty()) {
-                    if (Thread.interrupted()) {
-                        LOGGER.warn("Run execution interrupted. Cleaning up.");
-                        doneFuture.complete(false);
-                    }
                     runRound();
                     try {
                         var done = stageDoneQueue.take();
+                        if (done == QUEUE_CANCEL_SIGNAL) {
+                            throw new InterruptedException("Received queue cancel signal.");
+                        }
                         onStageDone(done.getLeft(), done.getRight());
                     } catch (InterruptedException e) {
-                        LOGGER.warn("Run execution interrupted. Cleaning up.");
-                        doneFuture.complete(false);
+                        LOGGER.warn("[{}] Workflow graph run was interrupted. Shutting down run.", getRunName());
+                        onRunCancelled();
+                        break;
                     }
                 }
-                doneFuture.complete(stageTagToRunningState.values().stream().allMatch(state -> state == StageRunningState.SUCCESS));
-            });
+                return stageTagToRunningState.values().stream().allMatch(state -> state == StageRunningState.SUCCESS);
+            }, executorService);
             return doneFuture;
         }
 
+        public String getRunName() {
+            return WorkflowUtil.getRunName(executionDefinition);
+        }
+
+        public boolean isRunning() {
+            return doneFuture != null && !doneFuture.isDone();
+        }
+
         public synchronized void cancel() {
-            cancellableFuture.cancel(true);
+            if (doneFuture == null) {
+                throw new IllegalStateException("Can not cancel run that was not started yet.");
+            }
+            if (!doneFuture.isDone()) {
+                stageDoneQueue.add(QUEUE_CANCEL_SIGNAL);
+            }
         }
 
         private void runRound() {
@@ -206,6 +216,15 @@ public class WorkflowGraph {
             } else {
                 runGraph.removeVertex(stage);
                 stageTagToRunningState.put(stage.name(), StageRunningState.SUCCESS);
+            }
+            updateStageStateView();
+        }
+
+        private void onRunCancelled() {
+            for (var stage : stageTagToRunningState.entrySet()) {
+                if (stage.getValue() == StageRunningState.RUNNING || stage.getValue() == StageRunningState.WAITING) {
+                    stageTagToRunningState.put(stage.getKey(), StageRunningState.IGNORED);
+                }
             }
             updateStageStateView();
         }
