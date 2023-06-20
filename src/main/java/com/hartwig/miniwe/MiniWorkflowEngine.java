@@ -6,7 +6,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 
 import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
-import com.hartwig.miniwe.kubernetes.KubernetesEnvironment;
 import com.hartwig.miniwe.kubernetes.KubernetesStageScheduler;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
@@ -18,17 +17,17 @@ import org.slf4j.LoggerFactory;
 
 public class MiniWorkflowEngine {
     private static final Logger LOGGER = LoggerFactory.getLogger(MiniWorkflowEngine.class);
+    private static final int MAX_CONCURRENT_RUNS = 32;
 
     private final GcloudStorage gcloudStorage;
     private final KubernetesStageScheduler kubernetesStageScheduler;
     private final ExecutorService executorService;
     private final ConcurrentMap<String, WorkflowGraph> workflowGraphToName = new ConcurrentHashMap<>();
 
-    public MiniWorkflowEngine(final GcloudStorage gcloudStorage, final KubernetesStageScheduler kubernetesStageScheduler,
-            final ExecutorService executorService) {
+    public MiniWorkflowEngine(final GcloudStorage gcloudStorage, final KubernetesStageScheduler kubernetesStageScheduler) {
         this.gcloudStorage = gcloudStorage;
         this.kubernetesStageScheduler = kubernetesStageScheduler;
-        this.executorService = executorService;
+        this.executorService = ThreadUtil.createExecutorService(MAX_CONCURRENT_RUNS, "workflow-run-thread-%d");
     }
 
     public void addWorkflowDefinition(WorkflowDefinition workflowDefinition) {
@@ -60,6 +59,5 @@ public class MiniWorkflowEngine {
         }
         workflowGraph.delete(executionDefinition);
         kubernetesStageScheduler.deleteStagesForRun(executionDefinition);
-        gcloudStorage.deleteBucket(runName);
     }
 }
