@@ -19,9 +19,9 @@ public interface ExecutionStage {
 
     String runName();
 
-    static ExecutionStage from(Stage stage, WorkflowDefinition pipeline, ExecutionDefinition execution) {
+    static ExecutionStage from(Stage stage, ExecutionDefinition execution) {
         var replaced = replaced(stage, execution.params());
-        return ImmutableExecutionStage.builder().stage(replaced).runName(pipeline.name() + "-" + execution.name()).build();
+        return ImmutableExecutionStage.builder().stage(replaced).runName(WorkflowUtil.getRunName(execution)).build();
     }
 
     private static Stage replaced(final Stage stage, final Map<String, String> map) {

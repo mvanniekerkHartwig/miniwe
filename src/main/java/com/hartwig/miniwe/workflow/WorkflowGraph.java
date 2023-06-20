@@ -193,7 +193,7 @@ public class WorkflowGraph {
                     .collect(Collectors.toList());
             for (Stage stage : readyStages) {
                 stageTagToRunningState.put(stage.name(), StageRunningState.RUNNING);
-                var executionStage = ExecutionStage.from(stage, workflowDefinition, executionDefinition);
+                var executionStage = ExecutionStage.from(stage, executionDefinition);
                 stageScheduler.schedule(executionStage).thenAccept(result -> stageDoneQueue.add(Pair.of(stage, result)));
             }
             if (!readyStages.isEmpty()) {
