@@ -37,17 +37,17 @@ class DefinitionReaderTest {
         String simpleExecution = "name: \"simple\"\nworkflow: \"wf\"\nversion: \"1.0.0\"";
         var result = definitionReader.readExecution(new ByteArrayInputStream(simpleExecution.getBytes(StandardCharsets.UTF_8)));
         var executionDefinition = ExecutionDefinition.builder().name("simple").workflow("wf").version("1.0.0").build();
-        assertEquals(result, executionDefinition);
+        assertEquals(executionDefinition, result);
     }
 
     @Test
     void parseSimpleWorkflow() throws IOException {
         var result = definitionReader.readWorkflow(getClass().getClassLoader().getResourceAsStream("simple-workflow.yaml"));
-        var workflow = WorkflowDefinition.builder()
-                .name("simple")
+        var expected = WorkflowDefinition.builder()
+                .name("wf")
                 .version("1.0.0")
                 .addStages(Stage.builder().name("simple-stage").image("eu.gcr.io/hmf-build/image").version("1.0.0").build())
                 .build();
-        assertEquals(result, workflow);
+        assertEquals(expected, result);
     }
 }
