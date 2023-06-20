@@ -39,7 +39,7 @@ public class MiniWorkflowEngine {
 
     public CompletableFuture<Boolean> findOrStartWorkflowExecution(ExecutionDefinition executionDefinition) {
         var runName = WorkflowUtil.getRunName(executionDefinition);
-        LOGGER.info("Starting run with name '{}'", runName);
+        LOGGER.info("[{}] Starting run", runName);
         var workflowGraph = workflowGraphToName.get(executionDefinition.workflow());
         if (workflowGraph == null) {
             throw new IllegalArgumentException(String.format("Workflow with name '%s' does not exist.", executionDefinition.workflow()));
@@ -47,9 +47,7 @@ public class MiniWorkflowEngine {
         var bucket = gcloudStorage.findOrCreateBucket(runName);
         var scheduler = kubernetesEnvironment.findOrCreateScheduler(runName, bucket);
         var run = workflowGraph.getOrCreateRun(scheduler, bucket.getCachedStages(), executionDefinition);
-        run.subscribe(stage -> LOGGER.info("[{}] Execution graph updated: {}",
-                WorkflowUtil.getRunName(executionDefinition),
-                run.toDotFormat()));
+        run.subscribe(stage -> LOGGER.info("[{}] Execution graph updated: {}", run.getRunName(), run.toDotFormat()));
         return run.start();
     }
 

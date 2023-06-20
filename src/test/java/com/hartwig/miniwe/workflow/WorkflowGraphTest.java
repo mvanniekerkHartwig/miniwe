@@ -20,7 +20,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 
@@ -32,7 +31,6 @@ import com.hartwig.miniwe.miniwdl.Stage;
 import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class WorkflowGraphTest {
@@ -175,25 +173,71 @@ class WorkflowGraphTest {
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.WAITING), newRun.getStageStateView());
     }
 
-    @Disabled
     @Test
     void hangingStageCanBeCancelled() throws ExecutionException, InterruptedException {
-        var executorService = Executors.newSingleThreadScheduledExecutor();
-        var workflowGraph = new WorkflowGraph(simpleWorkflow, executorService);
-
-        CompletableFuture<Boolean> completableFuture = new CompletableFuture<>();
-        executorService.schedule(() -> {
-            completableFuture.complete(false);
-        }, 10, TimeUnit.SECONDS);
+        var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
 
         var stageScheduler = mock(StageScheduler.class);
-        when(stageScheduler.schedule(any())).thenAnswer(invocation -> completableFuture);
+        doAnswer(b -> CompletableFuture.supplyAsync(() -> {
+            try {
+                Thread.sleep(5_000);
+                return true;
+            } catch (InterruptedException e) {
+                return false;
+            }
+        })).when(stageScheduler).schedule(any());
 
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
         var future = run.start();
         run.cancel();
         assertFalse(future.get());
-        assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.WAITING), run.getStageStateView());
+        assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.IGNORED), run.getStageStateView());
+    }
+
+    @Test
+    void ActiveRunCanBeDeleted() throws ExecutionException, InterruptedException {
+        var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
+
+        var stageScheduler = mock(StageScheduler.class);
+        doAnswer(b -> CompletableFuture.supplyAsync(() -> {
+            try {
+                Thread.sleep(5_000);
+                return true;
+            } catch (InterruptedException e) {
+                return false;
+            }
+        })).when(stageScheduler).schedule(any());
+
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var future = run.start();
+        workflowGraph.delete(simpleExecution);
+        assertFalse(future.get());
+        assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.IGNORED), run.getStageStateView());
+    }
+
+    @Test
+    void runThatDoesNotExistCannotBeDeleted() {
+        var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
+        assertThrows(IllegalArgumentException.class, () -> workflowGraph.delete(simpleExecution));
+    }
+
+    @Test
+    void cancellingRunBeforeStartingFails() {
+        var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
+        var stageScheduler = mock(StageScheduler.class);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        assertThrows(IllegalStateException.class, run::cancel);
+    }
+
+    @Test
+    void cachedStageIsSuccess() throws ExecutionException, InterruptedException {
+        var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
+        var stageScheduler = mock(StageScheduler.class);
+
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("simple-stage"), simpleExecution);
+        assertTrue(run.start().get());
+        assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.SUCCESS), run.getStageStateView());
+        verifyNoMoreInteractions(stageScheduler);
     }
 
     @Test
@@ -337,6 +381,28 @@ class WorkflowGraphTest {
                 stageStates.get(3));
         assertEquals(Map.of("stage-a", WorkflowGraph.StageRunningState.SUCCESS, "stage-b", WorkflowGraph.StageRunningState.SUCCESS),
                 stageStates.get(4));
+    }
+
+    @Test
+    void testLinearWorkflowCached() throws ExecutionException, InterruptedException {
+        var workflowGraph = new WorkflowGraph(linearWorkflow, ForkJoinPool.commonPool());
+
+        var stageStates = new ArrayList<Map<String, WorkflowGraph.StageRunningState>>();
+
+        var stageScheduler = mock(StageScheduler.class);
+        when(stageScheduler.schedule(any())).thenAnswer(stage -> CompletableFuture.completedFuture(true));
+
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("stage-a"), simpleExecution);
+        run.subscribe(stageStates::add);
+
+        assertTrue(run.start().get());
+        assertEquals(3, stageStates.size());
+        assertEquals(Map.of("stage-a", WorkflowGraph.StageRunningState.SUCCESS, "stage-b", WorkflowGraph.StageRunningState.WAITING),
+                stageStates.get(0));
+        assertEquals(Map.of("stage-a", WorkflowGraph.StageRunningState.SUCCESS, "stage-b", WorkflowGraph.StageRunningState.RUNNING),
+                stageStates.get(1));
+        assertEquals(Map.of("stage-a", WorkflowGraph.StageRunningState.SUCCESS, "stage-b", WorkflowGraph.StageRunningState.SUCCESS),
+                stageStates.get(2));
     }
 
     @Test
