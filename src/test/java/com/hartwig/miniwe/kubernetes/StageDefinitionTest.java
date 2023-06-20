@@ -3,6 +3,7 @@ package com.hartwig.miniwe.kubernetes;
 import static com.hartwig.miniwe.kubernetes.KubernetesStageScheduler.DEFAULT_STORAGE_SIZE_GI;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -15,8 +16,10 @@ import java.util.stream.Collectors;
 
 import com.google.api.client.util.IOUtils;
 import com.google.cloud.storage.Bucket;
+import com.google.cloud.storage.Storage;
 import com.google.common.io.CharStreams;
 import com.hartwig.miniwe.gcloud.storage.GcloudBucket;
+import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.ImmutableExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.ImmutableStage;
@@ -31,7 +34,7 @@ class StageDefinitionTest {
     private ImmutableStage simpleStage;
     private final String namespace = "namespace";
     private final String serviceAccountName = "serviceAccount";
-    private GcloudBucket storageProvider;
+    private GcloudStorage storageProvider;
 
     @BeforeEach
     void setUp() {
@@ -39,7 +42,9 @@ class StageDefinitionTest {
         simpleExecution = ExecutionDefinition.builder().name("ex").workflow("wf").version("1.0.0").build();
         var bucketMock = mock(Bucket.class);
         when(bucketMock.getName()).thenReturn("bucket-name");
-        storageProvider = new GcloudBucket(bucketMock);
+        var storageMock = mock(Storage.class);
+        when(storageMock.get(any(String.class))).thenReturn(bucketMock);
+        storageProvider = new GcloudStorage(storageMock, "");
     }
 
     @Test

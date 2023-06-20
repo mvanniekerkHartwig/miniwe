@@ -1,7 +1,6 @@
 package com.hartwig.miniwe;
 
 import java.util.concurrent.Callable;
-import java.util.concurrent.ForkJoinPool;
 
 import com.google.cloud.storage.StorageOptions;
 import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
@@ -53,15 +52,12 @@ public class MiniWeMain implements Callable<Integer> {
             var executionDefinition = definitionReader.readExecution(executionDefinitionYaml);
             var workflowDefinition = definitionReader.readWorkflow(workflowDescriptionYaml);
 
-            var executorService = ForkJoinPool.commonPool();
             var storage = new GcloudStorage(gcloudStorage, gcpRegion);
             var kubernetesClientWrapper = new KubernetesClientWrapper(kubernetesClient);
-            var kubernetesStageScheduler = new KubernetesStageScheduler(kubernetesNamespace,
-                    executorService,
-                    kubernetesClientWrapper,
+            var kubernetesStageScheduler = new KubernetesStageScheduler(kubernetesNamespace, kubernetesClientWrapper,
                     kubernetesServiceAccountName,
                     storage);
-            var miniWorkflowEngine = new MiniWorkflowEngine(storage, kubernetesStageScheduler, executorService);
+            var miniWorkflowEngine = new MiniWorkflowEngine(storage, kubernetesStageScheduler);
 
             miniWorkflowEngine.addWorkflowDefinition(workflowDefinition);
 

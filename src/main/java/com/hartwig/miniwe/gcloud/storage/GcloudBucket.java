@@ -20,10 +20,6 @@ public class GcloudBucket {
         this.bucket = bucket;
     }
 
-    public void cleanup() {
-        bucket.delete();
-    }
-
     public Set<String> getCachedStages() {
         return bucket.list(Storage.BlobListOption.currentDirectory())
                 .streamAll()

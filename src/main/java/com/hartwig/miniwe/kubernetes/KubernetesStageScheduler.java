@@ -1,11 +1,11 @@
 package com.hartwig.miniwe.kubernetes;
 
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 
+import com.hartwig.miniwe.ThreadUtil;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.workflow.ExecutionStage;
 import com.hartwig.miniwe.workflow.StageScheduler;
@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 public class KubernetesStageScheduler implements StageScheduler {
     private static final Logger LOGGER = LoggerFactory.getLogger(KubernetesStageScheduler.class);
     public static final int DEFAULT_STORAGE_SIZE_GI = 1;
+    private static final int MAX_CONCURRENT_STAGES = 128;
 
     private final ConcurrentMap<ExecutionStage, StageRun> stageRunByExecutionStage = new ConcurrentHashMap<>();
     private final String namespace;
@@ -25,11 +26,11 @@ public class KubernetesStageScheduler implements StageScheduler {
     private final String serviceAccountName;
     private final StorageProvider storageProvider;
 
-    public KubernetesStageScheduler(final String namespace, final ExecutorService executor, final KubernetesClientWrapper kubernetesClient,
-            final String serviceAccountName, final StorageProvider storageProvider) {
+    public KubernetesStageScheduler(final String namespace, final KubernetesClientWrapper kubernetesClient, final String serviceAccountName,
+            final StorageProvider storageProvider) {
         this.serviceAccountName = serviceAccountName;
         this.namespace = namespace;
-        this.executor = executor;
+        this.executor = ThreadUtil.createExecutorService(MAX_CONCURRENT_STAGES, "stage-run-thread-%d");
         this.kubernetesClient = kubernetesClient;
         this.storageProvider = storageProvider;
     }
@@ -47,9 +48,14 @@ public class KubernetesStageScheduler implements StageScheduler {
             try {
                 stageRun.start();
                 LOGGER.info("[{}] Starting stage", definition.getStageName());
-                var result = stageRun.waitUntilComplete();
-                LOGGER.info("[{}] Stage completed with status '{}'", definition.getStageName(), result ? "Success" : "Failed");
-                return result;
+                var success = stageRun.waitUntilComplete();
+                LOGGER.info("[{}] Stage completed with status '{}'", definition.getStageName(), success ? "Success" : "Failed");
+                if (success) {
+                    stageRun.cleanup();
+                    stageRunByExecutionStage.remove(executionStage);
+                    LOGGER.info("[{}] Cleaned up resources for stage", definition.getStageName());
+                }
+                return success;
             } catch (Exception e) {
                 LOGGER.error("[{}] Stage failed with", definition.getStageName(), e);
                 return false;
@@ -57,10 +63,12 @@ public class KubernetesStageScheduler implements StageScheduler {
         }, executor);
     }
 
-    public void deleteStagesForRun(ExecutionDefinition executionDefinition) {
-        for (var entries : stageRunByExecutionStage.entrySet()) {
+    public synchronized void deleteStagesForRun(ExecutionDefinition executionDefinition) {
+        for (var iterator = stageRunByExecutionStage.entrySet().iterator(); iterator.hasNext(); ) {
+            final var entries = iterator.next();
             if (entries.getKey().runName().equals(WorkflowUtil.getRunName(executionDefinition))) {
                 entries.getValue().cleanup();
+                iterator.remove();
             }
         }
     }

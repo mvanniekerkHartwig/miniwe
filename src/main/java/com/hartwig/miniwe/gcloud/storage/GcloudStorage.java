@@ -1,7 +1,5 @@
 package com.hartwig.miniwe.gcloud.storage;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -35,25 +33,15 @@ public class GcloudStorage implements StorageProvider {
         var bucketName = KubernetesUtil.toValidRFC1123Label("run", runName);
         var bucket = storage.get(bucketName);
         if (bucket != null) {
-            LOGGER.warn("Bucket [{}] already exists. Reusing it.", bucketName);
+            LOGGER.warn("[{}] Bucket already exists, reusing it.", bucketName);
         } else {
             var bucketInfo = BucketInfo.newBuilder(bucketName).setLocation(gcpRegion).build();
             bucket = storage.create(bucketInfo);
-            LOGGER.info("Created run bucket [{}] in project [{}]", bucketName, storage.getOptions().getProjectId());
+            LOGGER.info("[{}] Created run bucket in project [{}]", bucketName, storage.getOptions().getProjectId());
         }
         var gcloudBucket = new GcloudBucket(bucket);
         bucketByRunName.put(runName, gcloudBucket);
         return gcloudBucket;
-    }
-
-    public void deleteBucket(String runName) {
-        var bucket = bucketByRunName.remove(runName);
-        if (bucket == null) {
-            LOGGER.warn("Could not find bucket to delete for runName '{}'.", runName);
-            return;
-        }
-        bucket.cleanup();
-        LOGGER.info("Deleted bucket for run '{}'", runName);
     }
 
     @Override
