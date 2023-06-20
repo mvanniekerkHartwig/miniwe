@@ -103,7 +103,7 @@ public class StageDefinition {
 
     @Override
     public String toString() {
-        return Stream.of(outputPvc, job).map(Serialization::asYaml).collect(Collectors.joining());
+        return Stream.of(outputPvc, job, onCompleteCopyJob).map(Serialization::asYaml).collect(Collectors.joining());
     }
 
     private static PersistentVolumeClaim persistentVolumeClaim(String pvcName, int storageSizeGi, String namespace) {
