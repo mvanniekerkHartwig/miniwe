@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 
-import com.hartwig.miniwe.ThreadUtil;
+import com.hartwig.miniwe.ExecutorUtil;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.workflow.ExecutionStage;
 import com.hartwig.miniwe.workflow.StageScheduler;
@@ -30,7 +30,7 @@ public class KubernetesStageScheduler implements StageScheduler {
             final StorageProvider storageProvider) {
         this.serviceAccountName = serviceAccountName;
         this.namespace = namespace;
-        this.executor = ThreadUtil.createExecutorService(MAX_CONCURRENT_STAGES, "stage-run-thread-%d");
+        this.executor = ExecutorUtil.createExecutorService(MAX_CONCURRENT_STAGES, "stage-run-thread-%d");
         this.kubernetesClient = kubernetesClient;
         this.storageProvider = storageProvider;
     }
@@ -47,10 +47,10 @@ public class KubernetesStageScheduler implements StageScheduler {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 stageRun.start();
-                LOGGER.info("[{}] Starting stage", definition.getStageName());
                 var success = stageRun.waitUntilComplete();
                 LOGGER.info("[{}] Stage completed with status '{}'", definition.getStageName(), success ? "Success" : "Failed");
                 if (success) {
+                    LOGGER.info("[{}] Cleaning up resources...", definition.getStageName());
                     stageRun.cleanup();
                     stageRunByExecutionStage.remove(executionStage);
                     LOGGER.info("[{}] Cleaned up resources for stage", definition.getStageName());

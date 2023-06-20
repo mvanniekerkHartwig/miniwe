@@ -37,12 +37,11 @@ class StageRun {
         if (!jobSucceeded) {
             return false;
         }
-        client.create(job);
+        client.create(onCompleteCopyJob);
         return client.waitUntilJobComplete(onCompleteCopyJob, STAGE_TIMEOUT_MINUTES, TimeUnit.MINUTES);
     }
 
     void cleanup() {
-        LOGGER.info("[{}] Cleaning up resources...", job.getMetadata().getName());
         client.deleteIfExists(job);
         client.deleteIfExists(onCompleteCopyJob);
         client.deleteIfExists(persistentVolumeClaim);
