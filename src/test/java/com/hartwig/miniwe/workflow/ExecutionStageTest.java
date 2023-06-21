@@ -26,7 +26,7 @@ class ExecutionStageTest {
     void testSimpleStage() {
         var executionStage = ExecutionStage.from(simpleStage, simpleExecution);
         assertEquals(simpleStage, executionStage.stage());
-        assertEquals("wf-ex", executionStage.runName());
+        assertEquals("wf-1-0-0-ex", executionStage.runName());
     }
 
     @Test

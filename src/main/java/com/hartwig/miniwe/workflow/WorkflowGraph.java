@@ -45,7 +45,7 @@ public class WorkflowGraph {
 
     public WorkflowGraphExecution getOrCreateRun(StageScheduler stageScheduler, Set<String> cachedStages,
             ExecutionDefinition executionDefinition) {
-        if (!executionDefinition.workflow().equals(workflowDefinition.name())) {
+        if (!WorkflowUtil.getWorkflowName(executionDefinition).equals(WorkflowUtil.getWorkflowName(workflowDefinition))) {
             throw new IllegalArgumentException(String.format("Workflow name '%s' should be the same as execution name, but was '%s'",
                     workflowDefinition.name(),
                     executionDefinition.workflow()));
