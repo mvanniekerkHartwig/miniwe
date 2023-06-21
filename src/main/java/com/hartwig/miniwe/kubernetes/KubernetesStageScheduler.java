@@ -26,8 +26,8 @@ public class KubernetesStageScheduler implements StageScheduler {
     private final String serviceAccountName;
     private final StorageProvider storageProvider;
 
-    public KubernetesStageScheduler(final String namespace, final KubernetesClientWrapper kubernetesClient, final String serviceAccountName,
-            final StorageProvider storageProvider) {
+    public KubernetesStageScheduler(String namespace, KubernetesClientWrapper kubernetesClient, String serviceAccountName,
+            StorageProvider storageProvider) {
         this.serviceAccountName = serviceAccountName;
         this.namespace = namespace;
         this.executor = ExecutorUtil.createExecutorService(MAX_CONCURRENT_STAGES, "stage-run-thread-%d");

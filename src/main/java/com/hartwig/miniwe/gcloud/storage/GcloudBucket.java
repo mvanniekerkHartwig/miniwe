@@ -16,7 +16,7 @@ import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 public class GcloudBucket {
     private final Bucket bucket;
 
-    public GcloudBucket(final Bucket bucket) {
+    public GcloudBucket(Bucket bucket) {
         this.bucket = bucket;
     }
 

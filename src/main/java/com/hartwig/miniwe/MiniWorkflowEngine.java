@@ -24,7 +24,7 @@ public class MiniWorkflowEngine {
     private final ExecutorService executorService;
     private final ConcurrentMap<String, WorkflowGraph> workflowGraphToName = new ConcurrentHashMap<>();
 
-    public MiniWorkflowEngine(final GcloudStorage gcloudStorage, final KubernetesStageScheduler kubernetesStageScheduler) {
+    public MiniWorkflowEngine(GcloudStorage gcloudStorage, KubernetesStageScheduler kubernetesStageScheduler) {
         this.gcloudStorage = gcloudStorage;
         this.kubernetesStageScheduler = kubernetesStageScheduler;
         this.executorService = ExecutorUtil.createExecutorService(MAX_CONCURRENT_RUNS, "workflow-run-thread-%d");

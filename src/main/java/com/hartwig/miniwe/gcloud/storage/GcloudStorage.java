@@ -21,7 +21,7 @@ public class GcloudStorage implements StorageProvider {
 
     private final ConcurrentMap<String, GcloudBucket> bucketByRunName = new ConcurrentHashMap<>();
 
-    public GcloudStorage(final Storage storage, final String gcpRegion) {
+    public GcloudStorage(Storage storage, String gcpRegion) {
         this.storage = storage;
         this.gcpRegion = gcpRegion;
     }
@@ -45,12 +45,12 @@ public class GcloudStorage implements StorageProvider {
     }
 
     @Override
-    public Container initStorageContainer(final String runName, final String inputStage, final String volumeName) {
+    public Container initStorageContainer(String runName, String inputStage, String volumeName) {
         return findOrCreateBucket(runName).initStorageContainer(inputStage, volumeName);
     }
 
     @Override
-    public Container exitStorageContainer(final String runName, final String outputStage, final String volumeName) {
+    public Container exitStorageContainer(String runName, String outputStage, String volumeName) {
         return findOrCreateBucket(runName).exitStorageContainer(outputStage, volumeName);
     }
 }

@@ -38,7 +38,7 @@ public class WorkflowGraph {
     private final ExecutorService executorService;
     private final ConcurrentMap<String, WorkflowGraphExecution> runsByName = new ConcurrentHashMap<>();
 
-    public WorkflowGraph(final WorkflowDefinition workflowDefinition, final ExecutorService executorService) {
+    public WorkflowGraph(WorkflowDefinition workflowDefinition, ExecutorService executorService) {
         this.workflowDefinition = workflowDefinition;
         this.executorService = executorService;
     }
@@ -116,8 +116,7 @@ public class WorkflowGraph {
         private final List<Consumer<Map<String, StageRunningState>>> stageStateSubscribers =
                 Collections.synchronizedList(new ArrayList<>());
 
-        private WorkflowGraphExecution(final StageScheduler stageScheduler, final Set<String> doneStages,
-                final ExecutionDefinition executionDefinition) {
+        private WorkflowGraphExecution(StageScheduler stageScheduler, Set<String> doneStages, ExecutionDefinition executionDefinition) {
             this.stageScheduler = stageScheduler;
             this.executionDefinition = executionDefinition;
             fullGraph = createGraph();

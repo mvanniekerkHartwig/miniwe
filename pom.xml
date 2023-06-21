@@ -26,13 +26,18 @@
         <build.maven-surefire-plugin.version>3.0.0</build.maven-surefire-plugin.version>
         <build.maven-surefire-report-plugin.version>2.22.0</build.maven-surefire-report-plugin.version>
 
+        <!-- App dependencies -->
         <apache.log4j.version>2.17.1</apache.log4j.version>
         <immutables.version>2.5.5</immutables.version>
         <jgrapht.core.version>1.5.2</jgrapht.core.version>
         <fabric8.version>6.5.1</fabric8.version>
         <app.picocli.version>4.2.0</app.picocli.version>
         <jackson.version>2.15.2</jackson.version>
+        <google-cloud-storage.version>2.22.1</google-cloud-storage.version>
+
+        <!-- Test dependencies -->
         <test.mockito.version>2.23.4</test.mockito.version>
+        <test.junit-jupiter.version>5.9.3</test.junit-jupiter.version>
     </properties>
 
     <repositories>
@@ -42,30 +47,11 @@
         </repository>
     </repositories>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>com.google.cloud</groupId>
-                <artifactId>libraries-bom</artifactId>
-                <version>26.14.0</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.junit</groupId>
-                <artifactId>junit-bom</artifactId>
-                <version>5.9.3</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-        </dependencies>
-    </dependencyManagement>
-
     <dependencies>
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-storage</artifactId>
+            <version>${google-cloud-storage.version}</version>
         </dependency>
         <dependency>
             <groupId>org.immutables</groupId>
@@ -127,6 +113,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <version>${test.junit-jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>

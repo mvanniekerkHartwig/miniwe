@@ -20,7 +20,7 @@ public class KubernetesClientWrapper {
 
     private final KubernetesClient client;
 
-    public KubernetesClientWrapper(final KubernetesClient client) {
+    public KubernetesClientWrapper(KubernetesClient client) {
         this.client = client;
     }
 
@@ -34,7 +34,7 @@ public class KubernetesClientWrapper {
         LOGGER.info("Created job with name [{}]", job.getMetadata().getName());
     }
 
-    public boolean waitUntilJobComplete(final Job job, int timeout, TimeUnit timeoutUnit) {
+    public boolean waitUntilJobComplete(Job job, int timeout, TimeUnit timeoutUnit) {
         var jobResource = client.batch().v1().jobs().resource(job);
         jobResource.waitUntilCondition(r -> {
             var status = r.getStatus();
@@ -50,7 +50,7 @@ public class KubernetesClientWrapper {
                 .orElse(false);
     }
 
-    public void deleteIfExists(final Job job) {
+    public void deleteIfExists(Job job) {
         var jobResource = client.batch().v1().jobs().resource(job);
         if (jobResource.get() != null) {
             LOGGER.info("Deleting job with name [{}]", job.getMetadata().getName());
@@ -58,7 +58,7 @@ public class KubernetesClientWrapper {
         }
     }
 
-    public void deleteIfExists(final PersistentVolumeClaim pvc) {
+    public void deleteIfExists(PersistentVolumeClaim pvc) {
         var pvcResource = client.persistentVolumeClaims().resource(pvc);
         if (pvcResource.get() != null) {
             LOGGER.info("Deleting persistent volume with name [{}]", pvc.getMetadata().getName());

@@ -29,13 +29,13 @@ public interface ExecutionStage {
         return ImmutableExecutionStage.builder().stage(replaced).runName(WorkflowUtil.getRunName(execution)).build();
     }
 
-    private static Stage replaced(final Stage stage, final Map<String, String> map) {
+    private static Stage replaced(Stage stage, Map<String, String> map) {
         var arguments = stage.arguments().map(argument -> replaceKeys(argument, map));
         var entryPoints = stage.entrypoint().map(entryPoint -> replaceKeys(entryPoint, map));
         return Stage.builder().from(stage).arguments(arguments).entrypoint(entryPoints).build();
     }
 
-    private static String replaceKeys(final String input, final Map<String, String> map) {
+    private static String replaceKeys(String input, Map<String, String> map) {
         var output = input;
         for (var entry : map.entrySet()) {
             var key = "${" + entry.getKey() + "}";
