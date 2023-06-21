@@ -4,6 +4,8 @@ The Mini Workflow Engine (miniWE) is a simple task scheduler that runs in kubern
 miniWE supports running multiple workflows at the same time, and having multiple concurrent runs per workflow.
 Run outputs are stored in "run-buckets" in GCP Cloud storage. miniWE supports running with existing run-buckets, skipping steps if the
 output is already available.
+miniWE is meant to be executed as a library as part of a persistent server. It also supports running in standalone mode from the command
+line, this is the mode that is run when running the jar.
 
 ### Docker container structure
 
