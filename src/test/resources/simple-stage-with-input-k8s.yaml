@@ -2,7 +2,7 @@
 apiVersion: "v1"
 kind: "PersistentVolumeClaim"
 metadata:
-  name: "wf-ex-simple-stage-volume"
+  name: "wf-1-0-0-ex-simple-stage"
   namespace: "namespace"
 spec:
   accessModes:
@@ -15,7 +15,7 @@ spec:
 apiVersion: "batch/v1"
 kind: "Job"
 metadata:
-  name: "wf-ex-simple-stage"
+  name: "wf-1-0-0-ex-simple-stage"
   namespace: "namespace"
 spec:
   backoffLimit: 1
@@ -23,14 +23,14 @@ spec:
     spec:
       containers:
       - image: "eu.gcr.io/hmf-build/image:1.0.0"
-        name: "wf-ex-simple-stage"
+        name: "wf-1-0-0-ex-simple-stage"
         volumeMounts:
         - mountPath: "/in/stage-a"
-          name: "wf-ex-stage-a-volume"
+          name: "wf-1-0-0-ex-stage-a"
         - mountPath: "/in/stage-b"
-          name: "wf-ex-stage-b-volume"
+          name: "wf-1-0-0-ex-stage-b"
         - mountPath: "/out"
-          name: "wf-ex-simple-stage-volume"
+          name: "wf-1-0-0-ex-simple-stage"
       initContainers:
       - command:
         - "sh"
@@ -40,7 +40,7 @@ spec:
         name: "stage-a-input"
         volumeMounts:
         - mountPath: "/in"
-          name: "wf-ex-stage-a-volume"
+          name: "wf-1-0-0-ex-stage-a"
       - command:
         - "sh"
         - "-c"
@@ -49,23 +49,23 @@ spec:
         name: "stage-b-input"
         volumeMounts:
         - mountPath: "/in"
-          name: "wf-ex-stage-b-volume"
+          name: "wf-1-0-0-ex-stage-b"
       restartPolicy: "Never"
       serviceAccountName: "serviceAccount"
       volumes:
       - emptyDir: {}
-        name: "wf-ex-stage-a-volume"
+        name: "wf-1-0-0-ex-stage-a"
       - emptyDir: {}
-        name: "wf-ex-stage-b-volume"
-      - name: "wf-ex-simple-stage-volume"
+        name: "wf-1-0-0-ex-stage-b"
+      - name: "wf-1-0-0-ex-simple-stage"
         persistentVolumeClaim:
-          claimName: "wf-ex-simple-stage-volume"
+          claimName: "wf-1-0-0-ex-simple-stage"
           readOnly: false
 ---
 apiVersion: "batch/v1"
 kind: "Job"
 metadata:
-  name: "wf-ex-simple-stage-cp"
+  name: "wf-1-0-0-ex-simple-stage-cp"
   namespace: "namespace"
 spec:
   backoffLimit: 1
@@ -80,11 +80,11 @@ spec:
         name: "simple-stage-copier"
         volumeMounts:
         - mountPath: "/out"
-          name: "wf-ex-simple-stage-volume"
+          name: "wf-1-0-0-ex-simple-stage"
       restartPolicy: "Never"
       serviceAccountName: "serviceAccount"
       volumes:
-      - name: "wf-ex-simple-stage-volume"
+      - name: "wf-1-0-0-ex-simple-stage"
         persistentVolumeClaim:
-          claimName: "wf-ex-simple-stage-volume"
+          claimName: "wf-1-0-0-ex-simple-stage"
           readOnly: false

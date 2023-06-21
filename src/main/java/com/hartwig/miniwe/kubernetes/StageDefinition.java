@@ -43,14 +43,14 @@ public class StageDefinition {
         List<VolumeMount> mounts = new ArrayList<>();
         List<Container> initContainers = new ArrayList<>();
         for (final String inputStage : stage.inputStages()) {
-            var volumeName = KubernetesUtil.toValidRFC1123Label(executionStage.runName(), inputStage, "volume");
+            var volumeName = KubernetesUtil.toValidRFC1123Label(executionStage.runName(), inputStage);
 
             volumes.add(new VolumeBuilder().withName(volumeName).withNewEmptyDir().and().build());
             mounts.add(new VolumeMountBuilder().withName(volumeName).withMountPath("/in/" + inputStage).build());
             initContainers.add(storageProvider.initStorageContainer(executionStage.runName(), inputStage, volumeName));
         }
 
-        String outputVolumeName = KubernetesUtil.toValidRFC1123Label(stageName, "volume");
+        String outputVolumeName = KubernetesUtil.toValidRFC1123Label(stageName);
 
         outputPvc = persistentVolumeClaim(outputVolumeName, storageSizeGi, namespace);
         var outputVolume = new VolumeBuilder().withName(outputVolumeName).withNewPersistentVolumeClaim(outputVolumeName, false).build();

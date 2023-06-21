@@ -31,18 +31,20 @@ public class MiniWorkflowEngine {
     }
 
     public void addWorkflowDefinition(WorkflowDefinition workflowDefinition) {
-        if (workflowGraphToName.containsKey(workflowDefinition.name())) {
-            throw new IllegalArgumentException(String.format("Workflow with name '%s' already exists", workflowDefinition.name()));
+        var workflowName = WorkflowUtil.getWorkflowName(workflowDefinition);
+        if (workflowGraphToName.containsKey(workflowName)) {
+            throw new IllegalArgumentException(String.format("Workflow with name '%s' already exists", workflowName));
         }
-        workflowGraphToName.put(workflowDefinition.name(), new WorkflowGraph(workflowDefinition, executorService));
+        workflowGraphToName.put(workflowName, new WorkflowGraph(workflowDefinition, executorService));
     }
 
     public CompletableFuture<Boolean> findOrStartRun(ExecutionDefinition executionDefinition) {
+        var workflowName = WorkflowUtil.getWorkflowName(executionDefinition);
         var runName = WorkflowUtil.getRunName(executionDefinition);
         LOGGER.info("[{}] Starting run", runName);
-        var workflowGraph = workflowGraphToName.get(executionDefinition.workflow());
+        var workflowGraph = workflowGraphToName.get(workflowName);
         if (workflowGraph == null) {
-            throw new IllegalArgumentException(String.format("Workflow with name '%s' does not exist.", executionDefinition.workflow()));
+            throw new IllegalArgumentException(String.format("Workflow with name '%s' does not exist.", workflowName));
         }
         var bucket = gcloudStorage.findOrCreateBucket(runName);
         var run = workflowGraph.getOrCreateRun(kubernetesStageScheduler, bucket.getCachedStages(), executionDefinition);

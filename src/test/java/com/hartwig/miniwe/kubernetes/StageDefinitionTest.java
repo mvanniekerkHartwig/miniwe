@@ -52,7 +52,7 @@ class StageDefinitionTest {
         var simpleExecutionStage = ExecutionStage.from(simpleStage, simpleExecution);
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
-        assertEquals("wf-ex-simple-stage", stageDefinition.getStageName());
+        assertEquals("wf-1-0-0-ex-simple-stage", stageDefinition.getStageName());
         assertEquals(readResourceAsString("simple-stage-k8s.yaml"), stageDefinition.toString());
     }
 
@@ -62,7 +62,7 @@ class StageDefinitionTest {
         var simpleExecutionStage = ExecutionStage.from(withInputStage, simpleExecution);
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
-        assertEquals("wf-ex-simple-stage", stageDefinition.getStageName());
+        assertEquals("wf-1-0-0-ex-simple-stage", stageDefinition.getStageName());
         assertEquals(readResourceAsString("simple-stage-with-input-k8s.yaml"), stageDefinition.toString());
     }
 

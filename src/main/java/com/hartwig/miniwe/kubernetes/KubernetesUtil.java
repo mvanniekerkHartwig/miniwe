@@ -2,7 +2,7 @@ package com.hartwig.miniwe.kubernetes;
 
 public final class KubernetesUtil {
     public static String toValidRFC1123Label(String... input) {
-        String label = String.join("-", input).replaceAll("[_\\s]+", "-").toLowerCase();
+        String label = String.join("-", input).replaceAll("[._\\s]+", "-").toLowerCase();
 
         if (label.length() > 63) {
             throw new IllegalArgumentException("Label is too long: " + label);
