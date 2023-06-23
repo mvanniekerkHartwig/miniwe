@@ -1,5 +1,6 @@
 package com.hartwig.miniwe.gcloud.storage;
 
+import java.io.InputStream;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -7,7 +8,6 @@ import java.util.stream.Collectors;
 
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.Storage;
-import com.hartwig.miniwe.kubernetes.StorageProvider;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
@@ -20,8 +20,14 @@ public class GcloudBucket {
         this.bucket = bucket;
     }
 
+    @SuppressWarnings("unused")
+    public void writeStage(String stage, InputStream content) {
+        bucket.create(stage, content);
+    }
+
     public Set<String> getCachedStages() {
-        return bucket.list(Storage.BlobListOption.currentDirectory())
+        return bucket.reload()
+                .list(Storage.BlobListOption.currentDirectory())
                 .streamAll()
                 .filter(blob -> blob.getName().endsWith("/"))
                 .map(blob -> blob.getName().substring(0, blob.getName().length() - 1))

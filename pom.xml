@@ -6,7 +6,7 @@
 
     <groupId>com.hartwig.miniwe</groupId>
     <artifactId>miniwe</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>local-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -22,6 +22,7 @@
         <build.maven-assembly-plugin.version>3.5.0</build.maven-assembly-plugin.version>
         <build.maven-dependency-plugin.version>3.0.2</build.maven-dependency-plugin.version>
         <build.maven-jar-plugin.version>3.3.0</build.maven-jar-plugin.version>
+        <build.maven-source-plugin.version>3.3.0</build.maven-source-plugin.version>
         <build.maven-site-plugin.version>3.7.1</build.maven-site-plugin.version>
         <build.maven-surefire-plugin.version>3.0.0</build.maven-surefire-plugin.version>
         <build.maven-surefire-report-plugin.version>2.22.0</build.maven-surefire-report-plugin.version>
@@ -169,6 +170,20 @@
                         </manifest>
                     </archive>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>${build.maven-source-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

@@ -5,8 +5,8 @@ import java.util.concurrent.ConcurrentMap;
 
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
-import com.hartwig.miniwe.kubernetes.KubernetesUtil;
 import com.hartwig.miniwe.kubernetes.StorageProvider;
+import com.hartwig.miniwe.workflow.WorkflowUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +30,7 @@ public class GcloudStorage implements StorageProvider {
         if (bucketByRunName.containsKey(runName)) {
             return bucketByRunName.get(runName);
         }
-        var bucketName = KubernetesUtil.toValidRFC1123Label("run", runName);
+        var bucketName = WorkflowUtil.getBucketName(runName);
         var bucket = storage.get(bucketName);
         if (bucket != null) {
             LOGGER.warn("[{}] Bucket already exists, reusing it.", bucketName);

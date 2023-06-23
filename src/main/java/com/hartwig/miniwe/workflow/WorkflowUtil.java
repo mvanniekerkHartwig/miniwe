@@ -1,21 +1,29 @@
 package com.hartwig.miniwe.workflow;
 
-import com.hartwig.miniwe.kubernetes.KubernetesUtil;
+import static com.hartwig.miniwe.kubernetes.KubernetesUtil.toValidRFC1123Label;
+
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 
 public final class WorkflowUtil {
     public static String getRunName(ExecutionDefinition executionDefinition) {
-        return KubernetesUtil.toValidRFC1123Label(executionDefinition.workflow(),
-                executionDefinition.version(),
-                executionDefinition.name());
+        return toValidRFC1123Label(executionDefinition.workflow(), executionDefinition.version(), executionDefinition.name());
+    }
+
+    @SuppressWarnings("unused")
+    public static String getBucketName(ExecutionDefinition executionDefinition) {
+        return getBucketName(getRunName(executionDefinition));
+    }
+
+    public static String getBucketName(String runName) {
+        return toValidRFC1123Label("run", runName);
     }
 
     public static String getWorkflowName(WorkflowDefinition workflowDefinition) {
-        return KubernetesUtil.toValidRFC1123Label(workflowDefinition.name(), workflowDefinition.version());
+        return toValidRFC1123Label(workflowDefinition.name(), workflowDefinition.version());
     }
 
     public static String getWorkflowName(ExecutionDefinition executionDefinition) {
-        return KubernetesUtil.toValidRFC1123Label(executionDefinition.workflow(), executionDefinition.version());
+        return toValidRFC1123Label(executionDefinition.workflow(), executionDefinition.version());
     }
 }
