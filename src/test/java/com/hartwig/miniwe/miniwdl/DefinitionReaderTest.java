@@ -1,11 +1,14 @@
 package com.hartwig.miniwe.miniwdl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +41,13 @@ class DefinitionReaderTest {
         var result = definitionReader.readExecution(new ByteArrayInputStream(simpleExecution.getBytes(StandardCharsets.UTF_8)));
         var executionDefinition = ExecutionDefinition.builder().name("simple").workflow("wf").version("1.0.0").build();
         assertEquals(executionDefinition, result);
+    }
+
+    @Test
+    void extraFieldThrows() {
+        String extraFieldExecution = "name: \"simple\"\nworkflow: \"wf\"\nversion: \"1.0.0\"\nworkflowName: \"field\"";
+        assertThrows(UnrecognizedPropertyException.class,
+                () -> definitionReader.readExecution(new ByteArrayInputStream(extraFieldExecution.getBytes(StandardCharsets.UTF_8))));
     }
 
     @Test

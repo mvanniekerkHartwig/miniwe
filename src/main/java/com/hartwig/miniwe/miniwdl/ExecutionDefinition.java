@@ -4,6 +4,8 @@ import java.util.Map;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.hartwig.miniwe.kubernetes.KubernetesUtil;
+import com.hartwig.miniwe.workflow.WorkflowUtil;
 
 import org.immutables.value.Value;
 
@@ -34,6 +36,19 @@ public interface ExecutionDefinition {
      * as an input parameter.
      */
     Map<String, String> params();
+
+    default String getWorkflowName() {
+        return KubernetesUtil.toValidRFC1123Label(workflow(), version());
+    }
+
+    default String getRunName() {
+        return KubernetesUtil.toValidRFC1123Label(workflow(), version(), name());
+    }
+
+    @SuppressWarnings("unused")
+    default String getBucketName() {
+        return WorkflowUtil.getBucketName(getRunName());
+    }
 
     static ImmutableExecutionDefinition.Builder builder() {
         return ImmutableExecutionDefinition.builder();

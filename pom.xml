@@ -27,14 +27,14 @@
         <build.maven-surefire-plugin.version>3.0.0</build.maven-surefire-plugin.version>
         <build.maven-surefire-report-plugin.version>2.22.0</build.maven-surefire-report-plugin.version>
 
-        <!-- App dependencies -->
-        <apache.log4j.version>2.17.1</apache.log4j.version>
-        <immutables.version>2.5.5</immutables.version>
-        <jgrapht.core.version>1.5.2</jgrapht.core.version>
-        <fabric8.version>6.5.1</fabric8.version>
-        <app.picocli.version>4.2.0</app.picocli.version>
-        <jackson.version>2.15.2</jackson.version>
-        <google-cloud-storage.version>2.22.1</google-cloud-storage.version>
+        <!-- Library dependencies -->
+        <lib.apache.log4j.version>2.17.1</lib.apache.log4j.version>
+        <lib.immutables.version>2.5.5</lib.immutables.version>
+        <lib.jgrapht.core.version>1.5.2</lib.jgrapht.core.version>
+        <lib.fabric8.version>6.5.1</lib.fabric8.version>
+        <lib.app.picocli.version>4.2.0</lib.app.picocli.version>
+        <lib.jackson.version>2.15.2</lib.jackson.version>
+        <lib.google-cloud-storage.version>2.22.1</lib.google-cloud-storage.version>
 
         <!-- Test dependencies -->
         <test.mockito.version>2.23.4</test.mockito.version>
@@ -52,63 +52,63 @@
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-storage</artifactId>
-            <version>${google-cloud-storage.version}</version>
+            <version>${lib.google-cloud-storage.version}</version>
         </dependency>
         <dependency>
             <groupId>org.immutables</groupId>
             <artifactId>value</artifactId>
-            <version>${immutables.version}</version>
+            <version>${lib.immutables.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.jgrapht</groupId>
             <artifactId>jgrapht-core</artifactId>
-            <version>${jgrapht.core.version}</version>
+            <version>${lib.jgrapht.core.version}</version>
         </dependency>
         <dependency>
             <groupId>org.jgrapht</groupId>
             <artifactId>jgrapht-io</artifactId>
-            <version>${jgrapht.core.version}</version>
+            <version>${lib.jgrapht.core.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
-            <version>${apache.log4j.version}</version>
+            <version>${lib.apache.log4j.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j-impl</artifactId>
-            <version>${apache.log4j.version}</version>
+            <version>${lib.apache.log4j.version}</version>
         </dependency>
         <dependency>
             <groupId>io.fabric8</groupId>
             <artifactId>kubernetes-client</artifactId>
-            <version>${fabric8.version}</version>
+            <version>${lib.fabric8.version}</version>
         </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli</artifactId>
-            <version>${app.picocli.version}</version>
+            <version>${lib.app.picocli.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>${jackson.version}</version>
+            <version>${lib.jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jdk8</artifactId>
-            <version>${jackson.version}</version>
+            <version>${lib.jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>${jackson.version}</version>
+            <version>${lib.jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
-            <version>${jackson.version}</version>
+            <version>${lib.jackson.version}</version>
         </dependency>
 
         <dependency>

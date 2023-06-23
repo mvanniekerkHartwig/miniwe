@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.hartwig.miniwe.kubernetes.KubernetesUtil;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
-import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 import com.hartwig.miniwe.miniwdl.Stage;
 
 import org.immutables.value.Value;
@@ -26,13 +25,13 @@ public interface ExecutionStage {
 
     static ExecutionStage from(Stage stage, ExecutionDefinition execution) {
         var replaced = replaced(stage, execution.params());
-        return ImmutableExecutionStage.builder().stage(replaced).runName(WorkflowUtil.getRunName(execution)).build();
+        return ImmutableExecutionStage.builder().stage(replaced).runName(execution.getRunName()).build();
     }
 
     private static Stage replaced(Stage stage, Map<String, String> map) {
         var arguments = stage.arguments().map(argument -> replaceKeys(argument, map));
-        var entryPoints = stage.entrypoint().map(entryPoint -> replaceKeys(entryPoint, map));
-        return Stage.builder().from(stage).arguments(arguments).entrypoint(entryPoints).build();
+        var entryPoints = stage.command().map(entryPoint -> replaceKeys(entryPoint, map));
+        return Stage.builder().from(stage).arguments(arguments).command(entryPoints).build();
     }
 
     private static String replaceKeys(String input, Map<String, String> map) {

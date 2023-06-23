@@ -9,7 +9,6 @@ import com.hartwig.miniwe.ExecutorUtil;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.workflow.ExecutionStage;
 import com.hartwig.miniwe.workflow.StageScheduler;
-import com.hartwig.miniwe.workflow.WorkflowUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,7 +65,7 @@ public class KubernetesStageScheduler implements StageScheduler {
     public synchronized void deleteStagesForRun(ExecutionDefinition executionDefinition) {
         for (var iterator = stageRunByExecutionStage.entrySet().iterator(); iterator.hasNext(); ) {
             final var entries = iterator.next();
-            if (entries.getKey().runName().equals(WorkflowUtil.getRunName(executionDefinition))) {
+            if (entries.getKey().runName().equals(executionDefinition.getRunName())) {
                 entries.getValue().cleanup();
                 iterator.remove();
             }

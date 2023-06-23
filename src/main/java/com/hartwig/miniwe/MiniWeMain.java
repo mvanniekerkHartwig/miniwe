@@ -27,12 +27,12 @@ public class MiniWeMain implements Callable<Integer> {
                             description = "Path to the execution definition file")
     private String executionDefinitionYaml;
 
-    @CommandLine.Option(names = { "--kubernetes-namespace" },
+    @CommandLine.Option(names = { "--k8s-namespace" },
                         defaultValue = "default",
                         description = "Name of the kubernetes namespace")
     private String kubernetesNamespace;
 
-    @CommandLine.Option(names = { "--service-account-name" },
+    @CommandLine.Option(names = { "--k8s-service-account-name" },
                         description = "Name of the kubernetes job service account")
     private String kubernetesServiceAccountName;
 
@@ -64,9 +64,6 @@ public class MiniWeMain implements Callable<Integer> {
             LOGGER.info("Starting execution graph.");
             var success = miniWorkflowEngine.findOrStartRun(executionDefinition).get();
             LOGGER.info("Finished running execution graph. Final result: {}.", success ? "Success" : "Failed");
-            if (success) {
-                miniWorkflowEngine.cleanupRun(executionDefinition);
-            }
             return 0;
         } catch (Exception e) {
             LOGGER.error("Unexpected exception", e);

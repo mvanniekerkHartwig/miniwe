@@ -39,11 +39,11 @@ class ExecutionStageTest {
     }
 
     @Test
-    void stageKeysGetReplacedInEntrypoint() {
+    void stageKeysGetReplacedInCommand() {
         var paramExecution = simpleExecution.withParams(Map.of("param", "1"));
-        var paramStage = simpleStage.withEntrypoint("${param} --flag");
+        var paramStage = simpleStage.withCommand("${param} --flag");
         var executionStage = ExecutionStage.from(paramStage, paramExecution);
 
-        assertEquals("1 --flag", executionStage.stage().entrypoint().get());
+        assertEquals("1 --flag", executionStage.stage().command().get());
     }
 }

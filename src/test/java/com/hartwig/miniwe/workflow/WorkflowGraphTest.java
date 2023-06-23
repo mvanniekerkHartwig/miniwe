@@ -32,7 +32,9 @@ import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
+@Timeout(5)
 class WorkflowGraphTest {
 
     private ImmutableWorkflowDefinition simpleWorkflow;
@@ -59,8 +61,9 @@ class WorkflowGraphTest {
     @Test
     void workflowNameShouldEqualExecutionName() {
         var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
-        assertThrows(IllegalArgumentException.class,
+        var e = assertThrows(IllegalArgumentException.class,
                 () -> workflowGraph.getOrCreateRun(mock(StageScheduler.class), Set.of(), simpleExecution.withWorkflow("other-workflow")));
+        assertEquals("Workflow name 'wf-1-0-0' should be the same as execution name, but was 'other-workflow-1-0-0'", e.getMessage());
     }
 
     @Test
@@ -70,7 +73,7 @@ class WorkflowGraphTest {
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
-        var result = run.start();
+        var result = run.findOrStart();
         assertEquals(true, result.get());
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.SUCCESS), run.getStageStateView());
     }
@@ -88,7 +91,7 @@ class WorkflowGraphTest {
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
         run.subscribe(stageStates::add);
 
-        assertTrue(run.start().get());
+        assertTrue(run.findOrStart().get());
         assertEquals(stageStates.size(), 3);
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.WAITING), stageStates.get(0));
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.RUNNING), stageStates.get(1));
@@ -102,7 +105,7 @@ class WorkflowGraphTest {
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
-        var result = run.start();
+        var result = run.findOrStart();
         assertEquals(true, result.get());
         assertEquals("strict digraph G {\n" + "  1 [ label=\"simple-stage\" color=\"green\" ];\n" + "}\n", run.toDotFormat());
     }
@@ -114,7 +117,7 @@ class WorkflowGraphTest {
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(false));
 
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
-        var result = run.start();
+        var result = run.findOrStart();
         assertEquals(false, result.get());
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.FAILED), run.getStageStateView());
     }
@@ -131,7 +134,7 @@ class WorkflowGraphTest {
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
         run.subscribe(stageStates::add);
 
-        assertFalse(run.start().get());
+        assertFalse(run.findOrStart().get());
         assertEquals(stageStates.size(), 3);
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.WAITING), stageStates.get(0));
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.RUNNING), stageStates.get(1));
@@ -145,7 +148,7 @@ class WorkflowGraphTest {
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(false));
 
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
-        var result = run.start();
+        var result = run.findOrStart();
         assertEquals(false, result.get());
         assertEquals("strict digraph G {\n" + "  1 [ label=\"simple-stage\" color=\"red\" ];\n" + "}\n", run.toDotFormat());
     }
@@ -156,7 +159,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution).start().get();
+        workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution).findOrStart().get();
         var sameRun = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.SUCCESS), sameRun.getStageStateView());
     }
@@ -167,7 +170,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution).start().get();
+        workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution).findOrStart().get();
         workflowGraph.delete(simpleExecution);
         var newRun = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.WAITING), newRun.getStageStateView());
@@ -188,14 +191,14 @@ class WorkflowGraphTest {
         })).when(stageScheduler).schedule(any());
 
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
-        var future = run.start();
+        var success = run.findOrStart();
         run.cancel();
-        assertFalse(future.get());
+        assertFalse(success.get());
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.IGNORED), run.getStageStateView());
     }
 
     @Test
-    void ActiveRunCanBeDeleted() throws ExecutionException, InterruptedException {
+    void activeRunCanBeDeleted() throws ExecutionException, InterruptedException {
         var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
 
         var stageScheduler = mock(StageScheduler.class);
@@ -209,16 +212,17 @@ class WorkflowGraphTest {
         })).when(stageScheduler).schedule(any());
 
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
-        var future = run.start();
+        var success = run.findOrStart();
         workflowGraph.delete(simpleExecution);
-        assertFalse(future.get());
+        assertFalse(success.get());
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.IGNORED), run.getStageStateView());
     }
 
     @Test
     void runThatDoesNotExistCannotBeDeleted() {
         var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
-        assertThrows(IllegalArgumentException.class, () -> workflowGraph.delete(simpleExecution));
+        var e = assertThrows(IllegalArgumentException.class, () -> workflowGraph.delete(simpleExecution));
+        assertEquals("Could not find execution with run name 'wf-1-0-0-ex' to delete.", e.getMessage());
     }
 
     @Test
@@ -226,7 +230,8 @@ class WorkflowGraphTest {
         var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
         var stageScheduler = mock(StageScheduler.class);
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
-        assertThrows(IllegalStateException.class, run::cancel);
+        var e = assertThrows(IllegalStateException.class, run::cancel);
+        assertEquals("Cannot cancel run that was not started yet.", e.getMessage());
     }
 
     @Test
@@ -235,23 +240,23 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
 
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("simple-stage"), simpleExecution);
-        assertTrue(run.start().get());
+        assertTrue(run.findOrStart().get());
         assertEquals(Map.of("simple-stage", WorkflowGraph.StageRunningState.SUCCESS), run.getStageStateView());
         verifyNoMoreInteractions(stageScheduler);
     }
 
     @Test
-    void sameRunCannotBeStartedTwice() throws ExecutionException, InterruptedException {
+    void startingRunTwiceReturnsAlreadyStartedRun() throws ExecutionException, InterruptedException {
         var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
 
-        run.start().get();
+        run.findOrStart().get();
         clearInvocations(stageScheduler);
         verifyNoMoreInteractions(stageScheduler);
-        run.start().get();
+        run.findOrStart().get();
     }
 
     @Test
@@ -263,8 +268,8 @@ class WorkflowGraphTest {
         var otherScheduler = mock(StageScheduler.class);
         when(otherScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(false));
 
-        var run1 = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution).start();
-        var run2 = workflowGraph.getOrCreateRun(otherScheduler, Set.of(), simpleExecution.withName("other-execution")).start();
+        var run1 = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution).findOrStart();
+        var run2 = workflowGraph.getOrCreateRun(otherScheduler, Set.of(), simpleExecution.withName("other-execution")).findOrStart();
         assertFalse(run2.get());
         assertTrue(run1.get());
     }
@@ -276,7 +281,7 @@ class WorkflowGraphTest {
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
-        var result = run.start();
+        var result = run.findOrStart();
         assertEquals(true, result.get());
         var expected = Map.of("stage-b", WorkflowGraph.StageRunningState.SUCCESS, "stage-a", WorkflowGraph.StageRunningState.SUCCESS);
         assertEquals(expected, run.getStageStateView());
@@ -292,7 +297,7 @@ class WorkflowGraphTest {
                 .schedule(argThat(stage -> stage.stage().name().equals("stage-b")));
 
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
-        var result = run.start();
+        var result = run.findOrStart();
         assertEquals(false, result.get());
         var expected = Map.of("stage-b", WorkflowGraph.StageRunningState.FAILED, "stage-a", WorkflowGraph.StageRunningState.SUCCESS);
         assertEquals(expected, run.getStageStateView());
@@ -345,7 +350,7 @@ class WorkflowGraphTest {
         var stageStates = new ArrayList<Map<String, WorkflowGraph.StageRunningState>>();
         run.subscribe(stageStates::add);
 
-        var result = run.start();
+        var result = run.findOrStart();
         assertEquals(true, result.get());
 
         assertEquals(6, stageStates.size());
@@ -369,7 +374,7 @@ class WorkflowGraphTest {
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
         run.subscribe(stageStates::add);
 
-        assertTrue(run.start().get());
+        assertTrue(run.findOrStart().get());
         assertEquals(5, stageStates.size());
         assertEquals(Map.of("stage-a", WorkflowGraph.StageRunningState.WAITING, "stage-b", WorkflowGraph.StageRunningState.WAITING),
                 stageStates.get(0));
@@ -395,7 +400,7 @@ class WorkflowGraphTest {
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("stage-a"), simpleExecution);
         run.subscribe(stageStates::add);
 
-        assertTrue(run.start().get());
+        assertTrue(run.findOrStart().get());
         assertEquals(3, stageStates.size());
         assertEquals(Map.of("stage-a", WorkflowGraph.StageRunningState.SUCCESS, "stage-b", WorkflowGraph.StageRunningState.WAITING),
                 stageStates.get(0));
@@ -417,7 +422,7 @@ class WorkflowGraphTest {
         var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
         run.subscribe(stageStates::add);
 
-        assertFalse(run.start().get());
+        assertFalse(run.findOrStart().get());
         assertEquals(3, stageStates.size());
         assertEquals(Map.of("stage-a", WorkflowGraph.StageRunningState.WAITING, "stage-b", WorkflowGraph.StageRunningState.WAITING),
                 stageStates.get(0));

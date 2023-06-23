@@ -34,14 +34,14 @@ public interface Stage {
     List<String> inputStages();
 
     /**
-     * Arguments passed into the docker container directly after the entrypoint
+     * Arguments passed into the docker container directly after the command
      */
     Optional<String> arguments();
 
     /**
-     * Entrypoint. Default is the docker entrypoint.
+     * Command. Default is the docker entrypoint.
      */
-    Optional<String> entrypoint();
+    Optional<String> command();
 
     static ImmutableStage.Builder builder() {
         return ImmutableStage.builder();

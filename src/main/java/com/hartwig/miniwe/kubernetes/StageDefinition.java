@@ -37,7 +37,7 @@ public class StageDefinition {
         this.stageName = ExecutionStage.getName(executionStage);
 
         var args = stage.arguments().map(arguments -> List.of(arguments.split(" ")));
-        var entrypoint = stage.entrypoint().map(a -> List.of(a.split(" ")));
+        var command = stage.command().map(a -> List.of(a.split(" ")));
 
         List<Volume> volumes = new ArrayList<>();
         List<VolumeMount> mounts = new ArrayList<>();
@@ -59,7 +59,7 @@ public class StageDefinition {
 
         var containerBuilder = new ContainerBuilder().withName(stageName).withImage(imageName).withVolumeMounts(mounts);
         args.ifPresent(containerBuilder::withArgs);
-        entrypoint.ifPresent(containerBuilder::withCommand);
+        command.ifPresent(containerBuilder::withCommand);
         var container = containerBuilder.build();
         var pod = new PodSpecBuilder().withServiceAccountName(serviceAccountName)
                 .withInitContainers(initContainers)

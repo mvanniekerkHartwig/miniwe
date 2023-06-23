@@ -9,7 +9,7 @@ stages:
   - name: orange
     image: "eu.gcr.io/hmf-build/google/cloud-sdk"
     version: "425.0.0"
-    entrypoint: "gsutil rsync ${orange_path} /out"
+    command: "gsutil rsync ${orange_path} /out"
   - name: rose
     image: "eu.gcr.io/hmf-build/rose"
     version: "latest"
@@ -25,7 +25,7 @@ stages:
   - name: output
     image: "eu.gcr.io/hmf-build/google/cloud-sdk"
     version: "425.0.0"
-    entrypoint: "gsutil rsync /in ${output_path}"
+    command: "gsutil rsync /in ${output_path}"
     inputStages:
       - rose
       - protect

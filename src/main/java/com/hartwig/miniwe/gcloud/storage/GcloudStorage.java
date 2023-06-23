@@ -27,21 +27,18 @@ public class GcloudStorage implements StorageProvider {
     }
 
     public GcloudBucket findOrCreateBucket(String runName) {
-        if (bucketByRunName.containsKey(runName)) {
-            return bucketByRunName.get(runName);
-        }
-        var bucketName = WorkflowUtil.getBucketName(runName);
-        var bucket = storage.get(bucketName);
-        if (bucket != null) {
-            LOGGER.warn("[{}] Bucket already exists, reusing it.", bucketName);
-        } else {
-            var bucketInfo = BucketInfo.newBuilder(bucketName).setLocation(gcpRegion).build();
-            bucket = storage.create(bucketInfo);
-            LOGGER.info("[{}] Created run bucket in project [{}]", bucketName, storage.getOptions().getProjectId());
-        }
-        var gcloudBucket = new GcloudBucket(bucket);
-        bucketByRunName.put(runName, gcloudBucket);
-        return gcloudBucket;
+        return bucketByRunName.computeIfAbsent(runName, name -> {
+            var bucketName = WorkflowUtil.getBucketName(runName);
+            var bucket = storage.get(bucketName);
+            if (bucket != null) {
+                LOGGER.warn("[{}] Bucket already exists, reusing it.", bucketName);
+            } else {
+                var bucketInfo = BucketInfo.newBuilder(bucketName).setLocation(gcpRegion).build();
+                bucket = storage.create(bucketInfo);
+                LOGGER.info("[{}] Created run bucket in project [{}]", bucketName, storage.getOptions().getProjectId());
+            }
+            return new GcloudBucket(bucket);
+        });
     }
 
     @Override

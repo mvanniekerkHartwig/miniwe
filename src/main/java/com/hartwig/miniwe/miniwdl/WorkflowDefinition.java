@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.hartwig.miniwe.kubernetes.KubernetesUtil;
 
 import org.immutables.value.Value;
 
@@ -34,6 +35,10 @@ public interface WorkflowDefinition {
      * List of stages.
      */
     List<Stage> stages();
+
+    default String getWorkflowName() {
+        return KubernetesUtil.toValidRFC1123Label(name(), version());
+    }
 
     static ImmutableWorkflowDefinition.Builder builder() {
         return ImmutableWorkflowDefinition.builder();

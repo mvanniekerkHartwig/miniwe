@@ -1,17 +1,21 @@
 ## Mini Workflow Engine
 
-The Mini Workflow Engine (miniWE) is a simple task scheduler that runs in kubernetes.
-miniWE supports running multiple workflows at the same time, and having multiple concurrent runs per workflow.
-Run outputs are stored in "run-buckets" in GCP Cloud storage. miniWE supports running with existing run-buckets, skipping steps if the
+The Mini Workflow Engine (MiniWE) is a simple task scheduler that runs in kubernetes.
+As the name suggests, it is a scheduler for workflows. A workflow in this context is a collection of stages, where each stage takes some
+input, and generates some output. In MiniWE each stage is a docker image. Stages are connected through their input and outputs as a DAG and
+together form a workflow.
+
+MiniWE supports running multiple workflows at the same time, and having multiple concurrent runs per workflow.
+Run outputs are stored in "run-buckets" in GCP Cloud storage. MiniWE supports running with existing run-buckets, skipping stages if the
 output is already available.
-miniWE is meant to be executed as a library as part of a persistent server. It also supports running in standalone mode from the command
+MiniWE is meant to be executed as a library as part of a persistent server. It also supports running in standalone mode from the command
 line, this is the mode that is run when running the jar.
 
 ### Docker container structure
 
-Docker containers that are run with miniWE are expected to have a certain structure:
+Docker containers that are run with MiniWE are expected to have a certain structure:
 
-- miniWE runs docker containers that take (optionally) input data and produce (optionally) output data.
+- MiniWE runs docker containers that take (optionally) input data and produce (optionally) output data.
 - Previous stage outputs that the current stage depends on are mounted to the docker container as volumes at `/in/{stage_name}`.
 - The current stage should write its output files to a volume mounted at `/out`.
 
@@ -20,16 +24,16 @@ Docker containers that are run with miniWE are expected to have a certain struct
 A workflow is described using a Workflow Definition. This takes the form of a YAML file with the following fields.
 
 - name: The name of a workflow
-- version: The version of a workflow. miniWE supports having multiple workflows with the same name if the version number is different.
+- version: The version of a workflow. MiniWE supports having multiple workflows with the same name if the version number is different.
 - params: List with input parameters of a workflow. The values for these input parameters are defined in the "execution definition".
 - stages: All stages of a workflow.
     - name: The name of a stage. This name is used as part of the kubernetes job name, and is used in subsequent stages to refer to as an
       input stage.
     - image: The docker image name
     - version: The docker image tag
-    - entrypoint: Optional parameter to specify the "entrypoint" of a container (the command that the container will run).
-    - arguments: Optional parameter to specify "arguments" for a container entrypoint command (It is expected that most docker images will
-      define an entrypoint as part of the image).
+    - command: Optional parameter to specify the "command" of a container (the command that the container will run).
+    - arguments: Optional parameter to specify "arguments" for a container command (It is expected that most docker images will define an
+      entrypoint as part of the image).
     - inputStages: Optional list specifying all stages that the current stage depends on. These inputStages influence the order of execution
       of the containers, and outputs of previous stages will be mounted as inputs of the container.
 
@@ -47,7 +51,7 @@ stages:
   - name: orange
     image: "eu.gcr.io/hmf-build/google/cloud-sdk"
     version: "425.0.0"
-    entrypoint: "gsutil rsync ${orange_path} /out"
+    command: "gsutil rsync ${orange_path} /out"
   - name: rose
     image: "eu.gcr.io/hmf-pipeline-prod-e45b00f2/rose"
     version: "latest"
@@ -63,7 +67,7 @@ stages:
   - name: output
     image: "eu.gcr.io/hmf-build/google/cloud-sdk"
     version: "425.0.0"
-    entrypoint: "gsutil rsync /in ${output_path}"
+    command: "gsutil rsync /in ${output_path}"
     inputStages:
       - rose
       - protect
@@ -71,14 +75,14 @@ stages:
 
 ### Execution Definition
 
-A workflow can be executed by an execution definition. The execution definition name must be unique per workload. If the execution
-definition name corresponds to an existing run bucket in Cloud Storage, each stage for which output already exists in the run bucket will be
-skipped. The execution definition is a YAML file with the following fields:
+A workflow can be executed by an execution definition. The execution definition name must be unique for each different workflow run. If the
+execution definition name corresponds to an existing run bucket in Cloud Storage the run is considered a "rerun" and each stage for which
+output already exists in the run bucket will be skipped. The execution definition is a YAML file with the following fields:
 
 - name: Execution definition name
 - workflow: Name of the workflow
 - version: Version of the workflow
-- params: List of key-value pairs where the key corresponds with the reporting pipeline params.
+- params: List of key-value pairs where the key corresponds with the parameters in the workflow.
 
 Example execution definition for the workflow above:
 
@@ -115,19 +119,27 @@ resources for the stage are cleaned up. If the pods fail the job is kept around 
 Suppose that a stage fails. We can find the failed stage with:
 
 ```sh
-kc get pod | grep reporting-pipeline-1-0-0-alpha-1-test-run
+kubectl get pod | grep reporting-pipeline-1-0-0-alpha-1-test-run
 ```
 
-We can inspect the logs with `kc logs {{pod-name}}`. If we are done inspecting we can grep the job and delete it like so:
+We can inspect the logs with `kubectl logs {{pod-name}}`. If we are done inspecting we can grep the job and delete it like so:
 
 ```sh
-kc get job | grep reporting-pipeline-1-0-0-alpha-1-test-run
-kc delete job {{job-name}}
-kc get pvc | grep reporting-pipeline-1-0-0-alpha-1-test-run
-kc delete pvc {{pvc-name}}
+kubectl get job | grep reporting-pipeline-1-0-0-alpha-1-test-run
+kubectl delete job {{job-name}}
+kubectl get pvc | grep reporting-pipeline-1-0-0-alpha-1-test-run
+kubectl delete pvc {{pvc-name}}
 ```
 
 This will also clean up the pods.
+When running as a library, it may be more convenient to just
+call `KubernetesStageScheduler#deleteStagesForRun(ExecutionDefinition executionDefinition)`.
+
+### Running the workflow engine as a library
+
+```java
+
+```
 
 ### Running the README.md workflow for testing
 
@@ -151,6 +163,6 @@ src/test/resources/real-workflow.yaml \
 src/test/resources/real-execution.yaml \
 --gcp-project-id=hmf-pipeline-development \
 --gcp-region=europe-west4 \
---kubernetes-namespace=pilot-1 \
---service-account-name=pipeline-launcher-sa 
+--k8s-namespace=pilot-1 \
+--k8s-service-account-name=pipeline-launcher-sa 
 ```

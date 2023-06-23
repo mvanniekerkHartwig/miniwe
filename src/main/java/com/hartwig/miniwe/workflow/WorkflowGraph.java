@@ -45,13 +45,13 @@ public class WorkflowGraph {
 
     public WorkflowGraphExecution getOrCreateRun(StageScheduler stageScheduler, Set<String> cachedStages,
             ExecutionDefinition executionDefinition) {
-        if (!WorkflowUtil.getWorkflowName(executionDefinition).equals(WorkflowUtil.getWorkflowName(workflowDefinition))) {
+        if (!executionDefinition.getWorkflowName().equals(workflowDefinition.getWorkflowName())) {
             throw new IllegalArgumentException(String.format("Workflow name '%s' should be the same as execution name, but was '%s'",
-                    workflowDefinition.name(),
-                    executionDefinition.workflow()));
+                    workflowDefinition.getWorkflowName(),
+                    executionDefinition.getWorkflowName()));
         }
-        var runName = WorkflowUtil.getRunName(executionDefinition);
-        return runsByName.computeIfAbsent(runName, name -> new WorkflowGraphExecution(stageScheduler, cachedStages, executionDefinition));
+        return runsByName.computeIfAbsent(executionDefinition.getRunName(),
+                name -> new WorkflowGraphExecution(stageScheduler, cachedStages, executionDefinition));
     }
 
     /**
@@ -59,10 +59,9 @@ public class WorkflowGraph {
      *
      * @param executionDefinition execution definition for the run.
      */
-    public void delete(ExecutionDefinition executionDefinition) {
-        var runName = WorkflowUtil.getRunName(executionDefinition);
+    public synchronized void delete(ExecutionDefinition executionDefinition) {
+        var runName = executionDefinition.getRunName();
         if (!runsByName.containsKey(runName)) {
-            LOGGER.warn("Could not find execution with run name '{}' to delete.", runName);
             throw new IllegalArgumentException(String.format("Could not find execution with run name '%s' to delete.", runName));
         }
         var run = runsByName.get(runName);
@@ -103,7 +102,7 @@ public class WorkflowGraph {
 
     public class WorkflowGraphExecution {
         private final Pair<Stage, Boolean> QUEUE_CANCEL_SIGNAL = Pair.of(null, null);
-        private final Map<String, StageRunningState> stageTagToRunningState = new HashMap<>();
+        private final Map<String, StageRunningState> stageNameToRunningState = new HashMap<>();
         private final BlockingQueue<Pair<Stage, Boolean>> stageDoneQueue = new LinkedBlockingQueue<>();
         private final DefaultDirectedGraph<Stage, DefaultEdge> fullGraph;
         private final DefaultDirectedGraph<Stage, DefaultEdge> runGraph;
@@ -112,7 +111,7 @@ public class WorkflowGraph {
         private CompletableFuture<Boolean> doneFuture;
 
         // copy on write map, for viewing the stage state from another thread.
-        private Map<String, StageRunningState> stageStateView;
+        private volatile Map<String, StageRunningState> stageStateView;
         private final List<Consumer<Map<String, StageRunningState>>> stageStateSubscribers =
                 Collections.synchronizedList(new ArrayList<>());
 
@@ -128,12 +127,12 @@ public class WorkflowGraph {
                             getRunName(),
                             stage.name());
                     runGraph.removeVertex(stage);
-                    stageTagToRunningState.put(stage.name(), StageRunningState.SUCCESS);
+                    stageNameToRunningState.put(stage.name(), StageRunningState.SUCCESS);
                 } else {
-                    stageTagToRunningState.put(stage.name(), StageRunningState.WAITING);
+                    stageNameToRunningState.put(stage.name(), StageRunningState.WAITING);
                 }
             }
-            stageStateView = Map.copyOf(stageTagToRunningState);
+            stageStateView = Map.copyOf(stageNameToRunningState);
         }
 
         /**
@@ -141,7 +140,7 @@ public class WorkflowGraph {
          *
          * @return Future that returns true if the whole graph finished successfully, false otherwise.
          */
-        public synchronized CompletableFuture<Boolean> start() {
+        public synchronized CompletableFuture<Boolean> findOrStart() {
             if (doneFuture != null) {
                 LOGGER.warn("[{}] Run was already registered. Cannot start a new run with this name.", getRunName());
                 return doneFuture;
@@ -162,13 +161,13 @@ public class WorkflowGraph {
                         break;
                     }
                 }
-                return stageTagToRunningState.values().stream().allMatch(state -> state == StageRunningState.SUCCESS);
+                return stageNameToRunningState.values().stream().allMatch(state -> state == StageRunningState.SUCCESS);
             }, executorService);
             return doneFuture;
         }
 
         public String getRunName() {
-            return WorkflowUtil.getRunName(executionDefinition);
+            return executionDefinition.getRunName();
         }
 
         public boolean isRunning() {
@@ -177,7 +176,7 @@ public class WorkflowGraph {
 
         public synchronized void cancel() {
             if (doneFuture == null) {
-                throw new IllegalStateException("Can not cancel run that was not started yet.");
+                throw new IllegalStateException("Cannot cancel run that was not started yet.");
             }
             if (!doneFuture.isDone()) {
                 stageDoneQueue.add(QUEUE_CANCEL_SIGNAL);
@@ -187,11 +186,11 @@ public class WorkflowGraph {
         private void runRound() {
             var readyStages = runGraph.vertexSet()
                     .stream()
-                    .filter(stage -> runGraph.incomingEdgesOf(stage).size() == 0)
-                    .filter(stage -> stageTagToRunningState.get(stage.name()) == StageRunningState.WAITING)
+                    .filter(stage -> runGraph.incomingEdgesOf(stage).isEmpty())
+                    .filter(stage -> stageNameToRunningState.get(stage.name()) == StageRunningState.WAITING)
                     .collect(Collectors.toList());
             for (Stage stage : readyStages) {
-                stageTagToRunningState.put(stage.name(), StageRunningState.RUNNING);
+                stageNameToRunningState.put(stage.name(), StageRunningState.RUNNING);
                 var executionStage = ExecutionStage.from(stage, executionDefinition);
                 stageScheduler.schedule(executionStage).thenAccept(result -> stageDoneQueue.add(Pair.of(stage, result)));
             }
@@ -201,7 +200,10 @@ public class WorkflowGraph {
         }
 
         private void onStageDone(Stage stage, boolean success) {
-            if (!success) {
+            if (success) {
+                runGraph.removeVertex(stage);
+                stageNameToRunningState.put(stage.name(), StageRunningState.SUCCESS);
+            } else {
                 var iterator = new DepthFirstIterator<>(runGraph, stage);
                 var ignoredStages = new ArrayList<Stage>();
                 while (iterator.hasNext()) {
@@ -209,27 +211,24 @@ public class WorkflowGraph {
                 }
                 runGraph.removeAllVertices(ignoredStages);
                 for (Stage ignored : ignoredStages) {
-                    stageTagToRunningState.put(ignored.name(), StageRunningState.IGNORED);
+                    stageNameToRunningState.put(ignored.name(), StageRunningState.IGNORED);
                 }
-                stageTagToRunningState.put(stage.name(), StageRunningState.FAILED);
-            } else {
-                runGraph.removeVertex(stage);
-                stageTagToRunningState.put(stage.name(), StageRunningState.SUCCESS);
+                stageNameToRunningState.put(stage.name(), StageRunningState.FAILED);
             }
             updateStageStateView();
         }
 
         private void onRunCancelled() {
-            for (var stage : stageTagToRunningState.entrySet()) {
+            for (var stage : stageNameToRunningState.entrySet()) {
                 if (stage.getValue() == StageRunningState.RUNNING || stage.getValue() == StageRunningState.WAITING) {
-                    stageTagToRunningState.put(stage.getKey(), StageRunningState.IGNORED);
+                    stageNameToRunningState.put(stage.getKey(), StageRunningState.IGNORED);
                 }
             }
             updateStageStateView();
         }
 
         private void updateStageStateView() {
-            stageStateView = Map.copyOf(stageTagToRunningState);
+            stageStateView = Map.copyOf(stageNameToRunningState);
             synchronized (stageStateSubscribers) {
                 stageStateSubscribers.forEach(subscriber -> subscriber.accept(stageStateView));
             }
