@@ -1,0 +1,8 @@
+name: "test-run"
+workflow: "reporting-pipeline"
+version: "1.0.0-alpha.1"
+params:
+  patient_id: "pid"
+  primary_tumor_doids: "162"
+  orange_path: "gs://reporting-pipeline-test-mvn/in/"
+  output_path: "gs://reporting-pipeline-test-mvn/out/"
