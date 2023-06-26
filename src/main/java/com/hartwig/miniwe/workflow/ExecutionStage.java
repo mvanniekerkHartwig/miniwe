@@ -30,8 +30,8 @@ public interface ExecutionStage {
 
     private static Stage replaced(Stage stage, Map<String, String> map) {
         var arguments = stage.arguments().map(argument -> replaceKeys(argument, map));
-        var entryPoints = stage.command().map(entryPoint -> replaceKeys(entryPoint, map));
-        return Stage.builder().from(stage).arguments(arguments).command(entryPoints).build();
+        var commands = stage.command().map(command -> replaceKeys(command, map));
+        return Stage.builder().from(stage).arguments(arguments).command(commands).build();
     }
 
     private static String replaceKeys(String input, Map<String, String> map) {
