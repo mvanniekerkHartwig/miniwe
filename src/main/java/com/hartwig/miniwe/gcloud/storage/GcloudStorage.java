@@ -31,7 +31,7 @@ public class GcloudStorage implements StorageProvider {
             var bucketName = WorkflowUtil.getBucketName(runName);
             var bucket = storage.get(bucketName);
             if (bucket != null) {
-                LOGGER.warn("[{}] Bucket already exists, reusing it.", bucketName);
+                LOGGER.info("[{}] Bucket already exists, reusing it.", bucketName);
             } else {
                 var bucketInfo = BucketInfo.newBuilder(bucketName).setLocation(gcpRegion).build();
                 bucket = storage.create(bucketInfo);

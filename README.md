@@ -138,7 +138,33 @@ call `KubernetesStageScheduler#deleteStagesForRun(ExecutionDefinition executionD
 ### Running the workflow engine as a library
 
 ```java
+class Main {
+    public static void main(String[] args) {
+        try (BlockingKubernetesClient blockingKubernetesClient = new BlockingKubernetesClient();
+                Storage gcloudStorage = StorageOptions.newBuilder().setProjectId(gcpProjectId).build().getService()) {
+            // Used to convert from an input stream YAMLs to workflows and executions
+            DefinitionReader definitionReader = new DefinitionReader();
+            // Wrapper around Google Cloud Storage, makes it easier to create and find buckets for a given run
+            GcloudStorage storage = new GcloudStorage(gcloudStorage, gcpRegion);
+            // Kubernetes stage scheduler, used by the workflow engine to schedule stages
+            KubernetesStageScheduler kubernetesStageScheduler =
+                    new KubernetesStageScheduler(kubernetesNamespace, blockingKubernetesClient, kubernetesServiceAccountName, storage);
+            // Top level interface, most interactions will go through here
+            MiniWorkflowEngine miniWorkflowEngine = new MiniWorkflowEngine(storage, kubernetesStageScheduler);
 
+            // Read a workflow from an input stream and add it to the workflow engine
+            WorkflowDefinition workflowDefinition = definitionReader.readWorkflow(workflowDescriptionInput);
+            miniWorkflowEngine.addWorkflowDefinition(workflowDefinition);
+
+            // Read an execution from an input stream and start a run
+            ExecutionDefinition executionDefinition = definitionReader.readExecution(executionDefinitionYaml);
+            CompletableFuture<Boolean> doneFuture = miniWorkflowEngine.findOrStartRun(executionDefinition);
+
+            // Block until the run is done by waiting for the future, returns `true` if the workflow succeeded, `false` otherwise
+            boolean success = doneFuture.get();
+        }
+    }
+}
 ```
 
 ### Running the README.md workflow for testing

@@ -21,11 +21,11 @@ public class KubernetesStageScheduler implements StageScheduler {
     private final ConcurrentMap<ExecutionStage, StageRun> stageRunByExecutionStage = new ConcurrentHashMap<>();
     private final String namespace;
     private final ExecutorService executor;
-    private final KubernetesClientWrapper kubernetesClient;
+    private final BlockingKubernetesClient kubernetesClient;
     private final String serviceAccountName;
     private final StorageProvider storageProvider;
 
-    public KubernetesStageScheduler(String namespace, KubernetesClientWrapper kubernetesClient, String serviceAccountName,
+    public KubernetesStageScheduler(String namespace, BlockingKubernetesClient kubernetesClient, String serviceAccountName,
             StorageProvider storageProvider) {
         this.serviceAccountName = serviceAccountName;
         this.namespace = namespace;

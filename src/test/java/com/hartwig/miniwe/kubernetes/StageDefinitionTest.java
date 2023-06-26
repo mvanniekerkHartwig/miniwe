@@ -2,23 +2,17 @@ package com.hartwig.miniwe.kubernetes;
 
 import static com.hartwig.miniwe.kubernetes.KubernetesStageScheduler.DEFAULT_STORAGE_SIZE_GI;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.StringReader;
-import java.util.stream.Collectors;
 
-import com.google.api.client.util.IOUtils;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.Storage;
 import com.google.common.io.CharStreams;
-import com.hartwig.miniwe.gcloud.storage.GcloudBucket;
 import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.ImmutableExecutionDefinition;
@@ -52,8 +46,8 @@ class StageDefinitionTest {
         var simpleExecutionStage = ExecutionStage.from(simpleStage, simpleExecution);
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
-        assertEquals("wf-1-0-0-ex-simple-stage", stageDefinition.getStageName());
-        assertEquals(readResourceAsString("simple-stage-k8s.yaml"), stageDefinition.toString());
+        assertThat(stageDefinition.getStageName()).isEqualTo("wf-1-0-0-ex-simple-stage");
+        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-k8s.yaml"));
     }
 
     @Test
@@ -62,8 +56,8 @@ class StageDefinitionTest {
         var simpleExecutionStage = ExecutionStage.from(withInputStage, simpleExecution);
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
-        assertEquals("wf-1-0-0-ex-simple-stage", stageDefinition.getStageName());
-        assertEquals(readResourceAsString("simple-stage-with-input-k8s.yaml"), stageDefinition.toString());
+        assertThat(stageDefinition.getStageName()).isEqualTo("wf-1-0-0-ex-simple-stage");
+        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-with-input-k8s.yaml"));
     }
 
     private String readResourceAsString(String filename) throws IOException {

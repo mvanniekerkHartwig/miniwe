@@ -4,14 +4,13 @@ import java.util.concurrent.Callable;
 
 import com.google.cloud.storage.StorageOptions;
 import com.hartwig.miniwe.gcloud.storage.GcloudStorage;
-import com.hartwig.miniwe.kubernetes.KubernetesClientWrapper;
+import com.hartwig.miniwe.kubernetes.BlockingKubernetesClient;
 import com.hartwig.miniwe.kubernetes.KubernetesStageScheduler;
 import com.hartwig.miniwe.miniwdl.DefinitionReader;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import picocli.CommandLine;
 
 public class MiniWeMain implements Callable<Integer> {
@@ -46,17 +45,15 @@ public class MiniWeMain implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        try (var kubernetesClient = new KubernetesClientBuilder().build();
+        try (var blockingKubernetesClient = new BlockingKubernetesClient();
                 var gcloudStorage = StorageOptions.newBuilder().setProjectId(gcpProjectId).build().getService()) {
             var definitionReader = new DefinitionReader();
             var executionDefinition = definitionReader.readExecution(executionDefinitionYaml);
             var workflowDefinition = definitionReader.readWorkflow(workflowDescriptionYaml);
 
             var storage = new GcloudStorage(gcloudStorage, gcpRegion);
-            var kubernetesClientWrapper = new KubernetesClientWrapper(kubernetesClient);
-            var kubernetesStageScheduler = new KubernetesStageScheduler(kubernetesNamespace, kubernetesClientWrapper,
-                    kubernetesServiceAccountName,
-                    storage);
+            var kubernetesStageScheduler =
+                    new KubernetesStageScheduler(kubernetesNamespace, blockingKubernetesClient, kubernetesServiceAccountName, storage);
             var miniWorkflowEngine = new MiniWorkflowEngine(storage, kubernetesStageScheduler);
 
             miniWorkflowEngine.addWorkflowDefinition(workflowDefinition);

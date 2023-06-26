@@ -1,5 +1,6 @@
 package com.hartwig.miniwe.kubernetes;
 
+import java.io.Closeable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -11,17 +12,18 @@ import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 
 /**
  * Wrapper around the fabric8 Kubernetes client.
  */
-public class KubernetesClientWrapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(KubernetesClientWrapper.class);
+public class BlockingKubernetesClient implements Closeable {
+    private static final Logger LOGGER = LoggerFactory.getLogger(BlockingKubernetesClient.class);
 
     private final KubernetesClient client;
 
-    public KubernetesClientWrapper(KubernetesClient client) {
-        this.client = client;
+    public BlockingKubernetesClient() {
+        this.client = new KubernetesClientBuilder().build();
     }
 
     public void create(PersistentVolumeClaim persistentVolumeClaim) {
@@ -64,5 +66,15 @@ public class KubernetesClientWrapper {
             LOGGER.info("Deleting persistent volume with name [{}]", pvc.getMetadata().getName());
             pvcResource.withTimeout(30, TimeUnit.SECONDS).delete();
         }
+    }
+
+    @Override
+    public void close() {
+        client.close();
+    }
+
+    @SuppressWarnings("unused")
+    public KubernetesClient getFabric8Client() {
+        return client;
     }
 }

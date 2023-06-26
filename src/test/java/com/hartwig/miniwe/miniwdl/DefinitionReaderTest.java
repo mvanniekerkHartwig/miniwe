@@ -1,6 +1,6 @@
 package com.hartwig.miniwe.miniwdl;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
@@ -39,8 +39,8 @@ class DefinitionReaderTest {
     void parseSimpleExecution() throws IOException {
         String simpleExecution = "name: \"simple\"\nworkflow: \"wf\"\nversion: \"1.0.0\"";
         var result = definitionReader.readExecution(new ByteArrayInputStream(simpleExecution.getBytes(StandardCharsets.UTF_8)));
-        var executionDefinition = ExecutionDefinition.builder().name("simple").workflow("wf").version("1.0.0").build();
-        assertEquals(executionDefinition, result);
+        var expected = ExecutionDefinition.builder().name("simple").workflow("wf").version("1.0.0").build();
+        assertThat(result).isEqualTo(expected);
     }
 
     @Test
@@ -58,6 +58,6 @@ class DefinitionReaderTest {
                 .version("1.0.0")
                 .addStages(Stage.builder().name("simple-stage").image("eu.gcr.io/hmf-build/image").version("1.0.0").build())
                 .build();
-        assertEquals(expected, result);
+        assertThat(result).isEqualTo(expected);
     }
 }

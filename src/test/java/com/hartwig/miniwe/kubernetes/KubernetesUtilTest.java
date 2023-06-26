@@ -1,6 +1,6 @@
 package com.hartwig.miniwe.kubernetes;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 class KubernetesUtilTest {
     @Test
     void validInputShouldReturnValidLabel() {
-        assertEquals("valid-label", KubernetesUtil.toValidRFC1123Label("Valid", "Label"));
+        assertThat(KubernetesUtil.toValidRFC1123Label("Valid", "Label")).isEqualTo("valid-label");
     }
 
     @Test

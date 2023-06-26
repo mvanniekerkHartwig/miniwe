@@ -16,9 +16,9 @@ class StageRun {
     private final Job job;
     private final Job onCompleteCopyJob;
 
-    private final KubernetesClientWrapper client;
+    private final BlockingKubernetesClient client;
 
-    StageRun(PersistentVolumeClaim persistentVolumeClaim, Job job, Job onCompleteCopyJob, KubernetesClientWrapper client) {
+    StageRun(PersistentVolumeClaim persistentVolumeClaim, Job job, Job onCompleteCopyJob, BlockingKubernetesClient client) {
         this.persistentVolumeClaim = persistentVolumeClaim;
         this.job = job;
         this.onCompleteCopyJob = onCompleteCopyJob;

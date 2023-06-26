@@ -92,7 +92,7 @@ public class StageDefinition {
         return stageName;
     }
 
-    public StageRun createStageRun(KubernetesClientWrapper client) {
+    public StageRun createStageRun(BlockingKubernetesClient client) {
         return new StageRun(outputPvc, job, onCompleteCopyJob, client);
     }
 

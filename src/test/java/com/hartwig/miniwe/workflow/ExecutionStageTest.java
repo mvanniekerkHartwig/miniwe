@@ -1,6 +1,6 @@
 package com.hartwig.miniwe.workflow;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Map;
 
@@ -25,8 +25,8 @@ class ExecutionStageTest {
     @Test
     void testSimpleStage() {
         var executionStage = ExecutionStage.from(simpleStage, simpleExecution);
-        assertEquals(simpleStage, executionStage.stage());
-        assertEquals("wf-1-0-0-ex", executionStage.runName());
+        assertThat(executionStage.stage()).isEqualTo(simpleStage);
+        assertThat(executionStage.runName()).isEqualTo("wf-1-0-0-ex");
     }
 
     @Test
@@ -35,7 +35,7 @@ class ExecutionStageTest {
         var paramStage = simpleStage.withArguments("${param} --flag");
         var executionStage = ExecutionStage.from(paramStage, paramExecution);
 
-        assertEquals("1 --flag", executionStage.stage().arguments().get());
+        assertThat(executionStage.stage().arguments().get()).isEqualTo("1 --flag");
     }
 
     @Test
@@ -44,6 +44,6 @@ class ExecutionStageTest {
         var paramStage = simpleStage.withCommand("${param} --flag");
         var executionStage = ExecutionStage.from(paramStage, paramExecution);
 
-        assertEquals("1 --flag", executionStage.stage().command().get());
+        assertThat(executionStage.stage().command().get()).isEqualTo("1 --flag");
     }
 }
