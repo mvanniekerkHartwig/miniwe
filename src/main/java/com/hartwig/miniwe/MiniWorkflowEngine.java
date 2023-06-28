@@ -38,10 +38,9 @@ public class MiniWorkflowEngine {
     }
 
     public CompletableFuture<Boolean> findOrStartRun(ExecutionDefinition executionDefinition) {
-        var runName = executionDefinition.getRunName();
-        LOGGER.info("[{}] Starting run", runName);
+        LOGGER.info("[{}] Starting run", executionDefinition.getRunName());
         WorkflowGraph workflowGraph = getWorkflowGraph(executionDefinition);
-        var bucket = gcloudStorage.findOrCreateBucket(runName);
+        var bucket = gcloudStorage.findOrCreateBucket(executionDefinition.getBucketName());
         var run = workflowGraph.getOrCreateRun(kubernetesStageScheduler, bucket.getCachedStages(), executionDefinition);
         run.subscribe(stage -> LOGGER.info("[{}] Execution graph updated: {}", run.getRunName(), run.toDotFormat()));
         return run.findOrStart();

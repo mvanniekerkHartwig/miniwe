@@ -48,7 +48,7 @@ spec:
       - command:
         - "sh"
         - "-c"
-        - "gsutil rsync /out gs://bucket-name/simple-stage"
+        - "gsutil rsync /out gs://run-wf-1-0-0-ex/simple-stage"
         image: "eu.gcr.io/hmf-build/google/cloud-sdk:425.0.0"
         name: "simple-stage-copier"
         volumeMounts:

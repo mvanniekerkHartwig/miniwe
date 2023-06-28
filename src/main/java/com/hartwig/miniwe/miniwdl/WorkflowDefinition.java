@@ -8,9 +8,6 @@ import com.hartwig.miniwe.kubernetes.KubernetesUtil;
 
 import org.immutables.value.Value;
 
-/**
- * Mini Workflow Definition Language
- */
 @Value.Immutable
 @Value.Style(jdkOnly = true)
 @JsonDeserialize(as = ImmutableWorkflowDefinition.class)

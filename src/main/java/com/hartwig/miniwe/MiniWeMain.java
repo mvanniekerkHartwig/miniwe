@@ -1,5 +1,6 @@
 package com.hartwig.miniwe;
 
+import java.io.FileInputStream;
 import java.util.concurrent.Callable;
 
 import com.google.cloud.storage.StorageOptions;
@@ -16,15 +17,15 @@ import picocli.CommandLine;
 public class MiniWeMain implements Callable<Integer> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MiniWeMain.class);
 
-    @CommandLine.Parameters(paramLabel = "workflow_description_yaml",
+    @CommandLine.Parameters(paramLabel = "workflow_yaml",
                             index = "0",
-                            description = "Path to the workflow description file")
-    private String workflowDescriptionYaml;
+                            description = "Path to the workflow definition file")
+    private String workflowYamlFileName;
 
-    @CommandLine.Parameters(paramLabel = "execution_definition_yaml",
+    @CommandLine.Parameters(paramLabel = "execution_yaml",
                             index = "1",
                             description = "Path to the execution definition file")
-    private String executionDefinitionYaml;
+    private String executionYamlFileName;
 
     @CommandLine.Option(names = { "--k8s-namespace" },
                         defaultValue = "default",
@@ -46,14 +47,17 @@ public class MiniWeMain implements Callable<Integer> {
     @Override
     public Integer call() {
         try (var blockingKubernetesClient = new BlockingKubernetesClient();
-                var gcloudStorage = StorageOptions.newBuilder().setProjectId(gcpProjectId).build().getService()) {
+                var gcloudStorage = StorageOptions.newBuilder().setProjectId(gcpProjectId).build().getService();
+                var executionDefinitionYaml = new FileInputStream(executionYamlFileName);
+                var workflowDescriptionYaml = new FileInputStream(workflowYamlFileName)) {
+
             var definitionReader = new DefinitionReader();
             var executionDefinition = definitionReader.readExecution(executionDefinitionYaml);
             var workflowDefinition = definitionReader.readWorkflow(workflowDescriptionYaml);
 
             var storage = new GcloudStorage(gcloudStorage, gcpRegion);
             var kubernetesStageScheduler =
-                    new KubernetesStageScheduler(kubernetesNamespace, blockingKubernetesClient, kubernetesServiceAccountName, storage);
+                    new KubernetesStageScheduler(kubernetesNamespace, blockingKubernetesClient, kubernetesServiceAccountName);
             var miniWorkflowEngine = new MiniWorkflowEngine(storage, kubernetesStageScheduler);
 
             miniWorkflowEngine.addWorkflowDefinition(workflowDefinition);

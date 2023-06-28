@@ -31,10 +31,9 @@ public class StageDefinition {
 
     public StageDefinition(ExecutionStage executionStage, String namespace, int storageSizeGi, String serviceAccountName,
             StorageProvider storageProvider) {
+        this.stageName = executionStage.getName();
         var stage = executionStage.stage();
         var imageName = String.format("%s:%s", stage.image(), stage.version());
-
-        this.stageName = ExecutionStage.getName(executionStage);
 
         var args = stage.arguments().map(arguments -> List.of(arguments.split(" ")));
         var command = stage.command().map(a -> List.of(a.split(" ")));
@@ -47,7 +46,7 @@ public class StageDefinition {
 
             volumes.add(new VolumeBuilder().withName(volumeName).withNewEmptyDir().and().build());
             mounts.add(new VolumeMountBuilder().withName(volumeName).withMountPath("/in/" + inputStage).build());
-            initContainers.add(storageProvider.initStorageContainer(executionStage.runName(), inputStage, volumeName));
+            initContainers.add(storageProvider.initStorageContainer(executionStage.bucketName(), inputStage, volumeName));
         }
 
         String outputVolumeName = KubernetesUtil.toValidRFC1123Label(stageName);
@@ -73,7 +72,7 @@ public class StageDefinition {
 
         // create on complete copy job
         var onCompleteCopyPod = new PodSpecBuilder().withServiceAccountName(serviceAccountName)
-                .withContainers(storageProvider.exitStorageContainer(executionStage.runName(), stage.name(), outputVolumeName))
+                .withContainers(storageProvider.exitStorageContainer(executionStage.bucketName(), stage.name(), outputVolumeName))
                 .withRestartPolicy("Never")
                 .withVolumes(outputVolume)
                 .build();

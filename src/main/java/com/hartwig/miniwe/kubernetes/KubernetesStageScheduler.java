@@ -25,13 +25,12 @@ public class KubernetesStageScheduler implements StageScheduler {
     private final String serviceAccountName;
     private final StorageProvider storageProvider;
 
-    public KubernetesStageScheduler(String namespace, BlockingKubernetesClient kubernetesClient, String serviceAccountName,
-            StorageProvider storageProvider) {
+    public KubernetesStageScheduler(String namespace, BlockingKubernetesClient kubernetesClient, String serviceAccountName) {
         this.serviceAccountName = serviceAccountName;
         this.namespace = namespace;
         this.executor = ExecutorUtil.createExecutorService(MAX_CONCURRENT_STAGES, "stage-run-thread-%d");
         this.kubernetesClient = kubernetesClient;
-        this.storageProvider = storageProvider;
+        this.storageProvider = new GcloudStorageProvider();
     }
 
     @Override

@@ -19,13 +19,19 @@ public interface ExecutionStage {
 
     String runName();
 
-    static String getName(ExecutionStage executionStage) {
-        return KubernetesUtil.toValidRFC1123Label(executionStage.runName(), executionStage.stage().name());
+    String bucketName();
+
+    default String getName() {
+        return KubernetesUtil.toValidRFC1123Label(runName(), stage().name());
     }
 
     static ExecutionStage from(Stage stage, ExecutionDefinition execution) {
         var replaced = replaced(stage, execution.params());
-        return ImmutableExecutionStage.builder().stage(replaced).runName(execution.getRunName()).build();
+        return ImmutableExecutionStage.builder()
+                .stage(replaced)
+                .runName(execution.getRunName())
+                .bucketName(execution.getBucketName())
+                .build();
     }
 
     private static Stage replaced(Stage stage, Map<String, String> map) {

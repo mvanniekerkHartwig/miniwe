@@ -148,16 +148,16 @@ class Main {
             GcloudStorage storage = new GcloudStorage(gcloudStorage, gcpRegion);
             // Kubernetes stage scheduler, used by the workflow engine to schedule stages
             KubernetesStageScheduler kubernetesStageScheduler =
-                    new KubernetesStageScheduler(kubernetesNamespace, blockingKubernetesClient, kubernetesServiceAccountName, storage);
+                    new KubernetesStageScheduler(kubernetesNamespace, blockingKubernetesClient, kubernetesServiceAccountName);
             // Top level interface, most interactions will go through here
             MiniWorkflowEngine miniWorkflowEngine = new MiniWorkflowEngine(storage, kubernetesStageScheduler);
 
             // Read a workflow from an input stream and add it to the workflow engine
-            WorkflowDefinition workflowDefinition = definitionReader.readWorkflow(workflowDescriptionInput);
+            WorkflowDefinition workflowDefinition = definitionReader.readWorkflow(workflowYaml);
             miniWorkflowEngine.addWorkflowDefinition(workflowDefinition);
 
             // Read an execution from an input stream and start a run
-            ExecutionDefinition executionDefinition = definitionReader.readExecution(executionDefinitionYaml);
+            ExecutionDefinition executionDefinition = definitionReader.readExecution(executionYaml);
             CompletableFuture<Boolean> doneFuture = miniWorkflowEngine.findOrStartRun(executionDefinition);
 
             // Block until the run is done by waiting for the future, returns `true` if the workflow succeeded, `false` otherwise
