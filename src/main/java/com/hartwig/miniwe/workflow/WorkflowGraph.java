@@ -154,8 +154,8 @@ public class WorkflowGraph {
             doneFuture = CompletableFuture.supplyAsync(() -> {
                 updateStageStateView();
                 while (!runGraph.vertexSet().isEmpty()) {
+                    runRound();
                     try {
-                        runRound();
                         var done = stageDoneQueue.take();
                         if (done == QUEUE_CANCEL_SIGNAL) {
                             throw new InterruptedException("Received queue cancel signal.");
@@ -163,10 +163,6 @@ public class WorkflowGraph {
                         onStageDone(done.getLeft(), done.getRight());
                     } catch (InterruptedException e) {
                         LOGGER.warn("[{}] Workflow graph run was interrupted. Shutting down run.", getRunName());
-                        onRunCancelled();
-                        break;
-                    } catch (Exception e) {
-                        LOGGER.error("[{}] Workflow graph run failed. Shutting down run.", getRunName(), e);
                         onRunCancelled();
                         break;
                     }
@@ -200,11 +196,12 @@ public class WorkflowGraph {
                     .filter(stage -> stageNameToRunningState.get(stage.name()) == StageRunningState.WAITING)
                     .collect(Collectors.toList());
             for (Stage stage : readyStages) {
+                if (stage.image().equals(INPUT_IMAGE_NAME)) {
+                    stageDoneQueue.add(Pair.of(stage, false));
+                    continue;
+                }
                 stageNameToRunningState.put(stage.name(), StageRunningState.RUNNING);
                 var executionStage = ExecutionStage.from(stage, executionDefinition);
-                if (stage.image().equals(INPUT_IMAGE_NAME)) {
-                    throw new IllegalStateException("InputStage contents are missing for stage " + stage.name());
-                }
                 stageScheduler.schedule(executionStage).thenAccept(result -> stageDoneQueue.add(Pair.of(stage, result)));
             }
             if (!readyStages.isEmpty()) {

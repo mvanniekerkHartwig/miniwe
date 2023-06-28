@@ -79,36 +79,6 @@ class WorkflowGraphTest {
     }
 
     @Test
-    void testInputStageWorkflowSucceeds() throws ExecutionException, InterruptedException {
-        var workflowGraph = new WorkflowGraph(inputWorkflow, ForkJoinPool.commonPool());
-        var stageScheduler = mock(StageScheduler.class);
-        when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
-
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("input-stage"), simpleExecution);
-        var result = run.findOrStart();
-        assertThat(result.get()).isTrue();
-        assertThat(run.getStageStateView()).isEqualTo(Map.of("input-stage",
-                WorkflowGraph.StageRunningState.SUCCESS,
-                "simple-stage",
-                WorkflowGraph.StageRunningState.SUCCESS));
-    }
-
-    @Test
-    void testInputStageWorkflowFailsNoInput() throws ExecutionException, InterruptedException {
-        var workflowGraph = new WorkflowGraph(inputWorkflow, ForkJoinPool.commonPool());
-        var stageScheduler = mock(StageScheduler.class);
-        when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
-
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
-        var result = run.findOrStart();
-        assertThat(result.get()).isFalse();
-        assertThat(run.getStageStateView()).isEqualTo(Map.of("input-stage",
-                WorkflowGraph.StageRunningState.FAILED,
-                "simple-stage",
-                WorkflowGraph.StageRunningState.IGNORED));
-    }
-
-    @Test
     void testSimpleWorkflowSucceedsSubscription() throws ExecutionException, InterruptedException {
         var executorService = ForkJoinPool.commonPool();
         var workflowGraph = new WorkflowGraph(simpleWorkflow, executorService);
@@ -482,5 +452,51 @@ class WorkflowGraphTest {
                 WorkflowGraph.StageRunningState.FAILED,
                 "stage-b",
                 WorkflowGraph.StageRunningState.IGNORED));
+    }
+
+    @Test
+    void testInputStageWorkflowSucceeds() throws ExecutionException, InterruptedException {
+        var workflowGraph = new WorkflowGraph(inputWorkflow, ForkJoinPool.commonPool());
+        var stageScheduler = mock(StageScheduler.class);
+        when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
+
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("input-stage"), simpleExecution);
+        var result = run.findOrStart();
+        assertThat(result.get()).isTrue();
+        assertThat(run.getStageStateView()).isEqualTo(Map.of("input-stage",
+                WorkflowGraph.StageRunningState.SUCCESS,
+                "simple-stage",
+                WorkflowGraph.StageRunningState.SUCCESS));
+    }
+
+    @Test
+    void testInputStageFailsNoInput() throws ExecutionException, InterruptedException {
+        var workflowGraph = new WorkflowGraph(inputWorkflow, ForkJoinPool.commonPool());
+        var stageScheduler = mock(StageScheduler.class);
+        when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
+
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var result = run.findOrStart();
+        assertThat(result.get()).isFalse();
+        assertThat(run.getStageStateView()).isEqualTo(Map.of("input-stage",
+                WorkflowGraph.StageRunningState.FAILED,
+                "simple-stage",
+                WorkflowGraph.StageRunningState.IGNORED));
+    }
+
+    @Test
+    void testInputStageFailsStillRunsIndependentStage() throws ExecutionException, InterruptedException {
+        var workflowWithIndependentStage = simpleWorkflow.withInputStages("input-stage");
+        var workflowGraph = new WorkflowGraph(workflowWithIndependentStage, ForkJoinPool.commonPool());
+        var stageScheduler = mock(StageScheduler.class);
+        when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
+
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var result = run.findOrStart();
+        assertThat(result.get()).isFalse();
+        assertThat(run.getStageStateView()).isEqualTo(Map.of("input-stage",
+                WorkflowGraph.StageRunningState.FAILED,
+                "simple-stage",
+                WorkflowGraph.StageRunningState.SUCCESS));
     }
 }
