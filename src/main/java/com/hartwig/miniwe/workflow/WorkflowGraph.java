@@ -17,6 +17,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import com.google.common.collect.Streams;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.Stage;
 import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
@@ -33,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 public class WorkflowGraph {
     private static final Logger LOGGER = LoggerFactory.getLogger(WorkflowGraph.class);
+    private static final String INPUT_IMAGE_NAME = "input-image";
 
     private final WorkflowDefinition workflowDefinition;
     private final ExecutorService executorService;
@@ -74,11 +76,15 @@ public class WorkflowGraph {
     private DefaultDirectedGraph<Stage, DefaultEdge> createGraph() {
         var g = new DefaultDirectedGraph<Stage, DefaultEdge>(DefaultEdge.class);
         var stageToName = new HashMap<String, Stage>();
-        for (final Stage stage : workflowDefinition.stages()) {
+        var inputStages = workflowDefinition.inputStages()
+                .stream()
+                .map(inputName -> Stage.builder().name(inputName).image(INPUT_IMAGE_NAME).version("input-version").build());
+        var stages = Streams.concat(workflowDefinition.stages().stream(), inputStages).collect(Collectors.toList());
+        for (final Stage stage : stages) {
             g.addVertex(stage);
             stageToName.put(stage.name(), stage);
         }
-        for (final Stage stage : workflowDefinition.stages()) {
+        for (final Stage stage : stages) {
             for (String input : stage.inputStages()) {
                 g.addEdge(stageToName.get(input), stage, new DefaultEdge());
             }
@@ -148,8 +154,8 @@ public class WorkflowGraph {
             doneFuture = CompletableFuture.supplyAsync(() -> {
                 updateStageStateView();
                 while (!runGraph.vertexSet().isEmpty()) {
-                    runRound();
                     try {
+                        runRound();
                         var done = stageDoneQueue.take();
                         if (done == QUEUE_CANCEL_SIGNAL) {
                             throw new InterruptedException("Received queue cancel signal.");
@@ -157,6 +163,10 @@ public class WorkflowGraph {
                         onStageDone(done.getLeft(), done.getRight());
                     } catch (InterruptedException e) {
                         LOGGER.warn("[{}] Workflow graph run was interrupted. Shutting down run.", getRunName());
+                        onRunCancelled();
+                        break;
+                    } catch (Exception e) {
+                        LOGGER.error("[{}] Workflow graph run failed. Shutting down run.", getRunName(), e);
                         onRunCancelled();
                         break;
                     }
@@ -192,6 +202,9 @@ public class WorkflowGraph {
             for (Stage stage : readyStages) {
                 stageNameToRunningState.put(stage.name(), StageRunningState.RUNNING);
                 var executionStage = ExecutionStage.from(stage, executionDefinition);
+                if (stage.image().equals(INPUT_IMAGE_NAME)) {
+                    throw new IllegalStateException("InputStage contents are missing for stage " + stage.name());
+                }
                 stageScheduler.schedule(executionStage).thenAccept(result -> stageDoneQueue.add(Pair.of(stage, result)));
             }
             if (!readyStages.isEmpty()) {

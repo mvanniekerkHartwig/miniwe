@@ -3,6 +3,7 @@ package com.hartwig.miniwe.gcloud.storage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.hartwig.miniwe.kubernetes.StorageProvider;
@@ -49,5 +50,13 @@ public class GcloudStorage implements StorageProvider {
     @Override
     public Container exitStorageContainer(String runName, String outputStage, String volumeName) {
         return findOrCreateBucket(runName).exitStorageContainer(outputStage, volumeName);
+    }
+
+    @SuppressWarnings("unused")
+    public void copyIntoStage(String bucketName, String stage, String gsSourcePath) {
+        storage.copy(Storage.CopyRequest.newBuilder()
+                .setSource(BlobId.fromGsUtilUri(gsSourcePath))
+                .setTarget(BlobId.of(bucketName, stage))
+                .build());
     }
 }

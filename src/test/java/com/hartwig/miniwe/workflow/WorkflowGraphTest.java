@@ -40,6 +40,7 @@ class WorkflowGraphTest {
     private WorkflowDefinition concurrentWorkflow;
     private WorkflowDefinition veryConcurrentWorkflow;
     private WorkflowDefinition linearWorkflow;
+    private WorkflowDefinition inputWorkflow;
 
     @BeforeEach
     void setUp() throws IOException {
@@ -49,11 +50,12 @@ class WorkflowGraphTest {
                 .addStages(Stage.builder().name("simple-stage").image("eu.gcr.io/hmf-build/image").version("1.0.0").build())
                 .build();
         simpleExecution = ExecutionDefinition.builder().name("ex").workflow("wf").version("1.0.0").build();
-        concurrentWorkflow =
-                new DefinitionReader().readWorkflow(getClass().getClassLoader().getResourceAsStream("concurrent-stage-workflow.yaml"));
+        var classLoader = getClass().getClassLoader();
+        concurrentWorkflow = new DefinitionReader().readWorkflow(classLoader.getResourceAsStream("concurrent-stage-workflow.yaml"));
         veryConcurrentWorkflow =
-                new DefinitionReader().readWorkflow(getClass().getClassLoader().getResourceAsStream("very-concurrent-stage-workflow.yaml"));
-        linearWorkflow = new DefinitionReader().readWorkflow(getClass().getClassLoader().getResourceAsStream("linear-stage-workflow.yaml"));
+                new DefinitionReader().readWorkflow(classLoader.getResourceAsStream("very-concurrent-stage-workflow.yaml"));
+        linearWorkflow = new DefinitionReader().readWorkflow(classLoader.getResourceAsStream("linear-stage-workflow.yaml"));
+        inputWorkflow = new DefinitionReader().readWorkflow(classLoader.getResourceAsStream("workflow-with-inputs.yaml"));
     }
 
     @Test
@@ -74,6 +76,36 @@ class WorkflowGraphTest {
         var result = run.findOrStart();
         assertThat(result.get()).isTrue();
         assertThat(run.getStageStateView()).isEqualTo(Map.of("simple-stage", WorkflowGraph.StageRunningState.SUCCESS));
+    }
+
+    @Test
+    void testInputStageWorkflowSucceeds() throws ExecutionException, InterruptedException {
+        var workflowGraph = new WorkflowGraph(inputWorkflow, ForkJoinPool.commonPool());
+        var stageScheduler = mock(StageScheduler.class);
+        when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
+
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("input-stage"), simpleExecution);
+        var result = run.findOrStart();
+        assertThat(result.get()).isTrue();
+        assertThat(run.getStageStateView()).isEqualTo(Map.of("input-stage",
+                WorkflowGraph.StageRunningState.SUCCESS,
+                "simple-stage",
+                WorkflowGraph.StageRunningState.SUCCESS));
+    }
+
+    @Test
+    void testInputStageWorkflowFailsNoInput() throws ExecutionException, InterruptedException {
+        var workflowGraph = new WorkflowGraph(inputWorkflow, ForkJoinPool.commonPool());
+        var stageScheduler = mock(StageScheduler.class);
+        when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
+
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var result = run.findOrStart();
+        assertThat(result.get()).isFalse();
+        assertThat(run.getStageStateView()).isEqualTo(Map.of("input-stage",
+                WorkflowGraph.StageRunningState.FAILED,
+                "simple-stage",
+                WorkflowGraph.StageRunningState.IGNORED));
     }
 
     @Test

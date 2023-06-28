@@ -32,6 +32,11 @@ public interface WorkflowDefinition {
     List<String> params();
 
     /**
+     * Input stages required for this workflow definition
+     */
+    List<String> inputStages();
+
+    /**
      * List of stages.
      */
     List<Stage> stages();

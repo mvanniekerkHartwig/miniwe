@@ -25,6 +25,11 @@ public class GcloudBucket {
         bucket.create(stage, content);
     }
 
+    @SuppressWarnings("unused")
+    public void copyIntoStage(String stage, String fileName, byte[] content) {
+        bucket.create(stage + "/" + fileName, content);
+    }
+
     public Set<String> getCachedStages() {
         return bucket.reload()
                 .list(Storage.BlobListOption.currentDirectory())
