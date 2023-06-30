@@ -1,5 +1,6 @@
 package com.hartwig.miniwe.gcloud.storage;
 
+import java.io.InputStream;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -22,17 +23,26 @@ public class GcloudBucket {
     }
 
     @SuppressWarnings("unused")
+    public void copyIntoStage(String stage, String filename, InputStream content) {
+        getBucket().create(stage + "/" + filename, content);
+    }
+
+    @SuppressWarnings("unused")
     public void copyIntoStage(String stage, String filename, String gsSourcePath) {
         storage.copy(Storage.CopyRequest.newBuilder()
                 .setSource(BlobId.fromGsUtilUri(gsSourcePath))
-                .setTarget(BlobId.of(bucketName, stage + "/" + filename))
+                .setTarget(getBlobId(stage, filename))
                 .build());
+    }
+
+    public BlobId getBlobId(final String stage, final String filename) {
+        return BlobId.of(bucketName, stage + "/" + filename);
     }
 
     @SuppressWarnings("unused")
     public void copyOutOfStage(String stage, String filename, String gsTargetPath) {
         storage.copy(Storage.CopyRequest.newBuilder()
-                .setSource(BlobId.of(bucketName, stage + "/" + filename))
+                .setSource(getBlobId(stage, filename))
                 .setTarget(BlobId.fromGsUtilUri(gsTargetPath))
                 .build());
     }
