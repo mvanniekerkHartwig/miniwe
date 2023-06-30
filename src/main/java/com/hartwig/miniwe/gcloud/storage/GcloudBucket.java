@@ -1,18 +1,11 @@
 package com.hartwig.miniwe.gcloud.storage;
 
-import java.io.InputStream;
-import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.Storage;
-
-import io.fabric8.kubernetes.api.model.Container;
-import io.fabric8.kubernetes.api.model.ContainerBuilder;
-import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 
 public class GcloudBucket {
     private final String bucketName;
@@ -24,26 +17,28 @@ public class GcloudBucket {
     }
 
     @SuppressWarnings("unused")
-    public void writeStage(String stage, InputStream content) {
-        getBucket().create(stage, content);
+    public void copyIntoStage(String stage, String filename, byte[] content) {
+        getBucket().create(stage + "/" + filename, content);
     }
 
     @SuppressWarnings("unused")
-    public void copyIntoStage(String stage, String fileName, byte[] content) {
-        getBucket().create(stage + "/" + fileName, content);
-    }
-
-    @SuppressWarnings("unused")
-    public void copyIntoStage(String stage, String gsSourcePath) {
+    public void copyIntoStage(String stage, String filename, String gsSourcePath) {
         storage.copy(Storage.CopyRequest.newBuilder()
                 .setSource(BlobId.fromGsUtilUri(gsSourcePath))
-                .setTarget(BlobId.of(bucketName, stage))
+                .setTarget(BlobId.of(bucketName, stage + "/" + filename))
+                .build());
+    }
+
+    @SuppressWarnings("unused")
+    public void copyOutOfStage(String stage, String filename, String gsTargetPath) {
+        storage.copy(Storage.CopyRequest.newBuilder()
+                .setSource(BlobId.of(bucketName, stage + "/" + filename))
+                .setTarget(BlobId.fromGsUtilUri(gsTargetPath))
                 .build());
     }
 
     public Set<String> getCachedStages() {
-        return getBucket()
-                .list(Storage.BlobListOption.currentDirectory())
+        return getBucket().list(Storage.BlobListOption.currentDirectory())
                 .streamAll()
                 .filter(blob -> blob.getName().endsWith("/"))
                 .map(blob -> blob.getName().substring(0, blob.getName().length() - 1))

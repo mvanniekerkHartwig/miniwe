@@ -16,8 +16,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import com.google.common.collect.Streams;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.Stage;
 import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
@@ -79,7 +79,7 @@ public class WorkflowGraph {
         var inputStages = workflowDefinition.inputStages()
                 .stream()
                 .map(inputName -> Stage.builder().name(inputName).image(INPUT_IMAGE_NAME).version("input-version").build());
-        var stages = Streams.concat(workflowDefinition.stages().stream(), inputStages).collect(Collectors.toList());
+        var stages = Stream.concat(workflowDefinition.stages().stream(), inputStages).collect(Collectors.toList());
         for (final Stage stage : stages) {
             g.addVertex(stage);
             stageToName.put(stage.name(), stage);

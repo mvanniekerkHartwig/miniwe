@@ -33,7 +33,7 @@ public class GcloudStorage {
             } else {
                 var bucketInfo = BucketInfo.newBuilder(bucketName).setLocation(gcpRegion).build();
                 storage.create(bucketInfo);
-                LOGGER.info("[{}] Created run bucket in project [{}]", bucketName, storage.getOptions().getProjectId());
+                LOGGER.info("[{}] Created bucket in project [{}]", bucketName, storage.getOptions().getProjectId());
             }
             return new GcloudBucket(bucketName, storage);
         });
