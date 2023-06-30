@@ -129,7 +129,7 @@ public class WorkflowGraph {
 
             for (final Stage stage : fullGraph.vertexSet()) {
                 if (doneStages.contains(stage.name())) {
-                    LOGGER.info("[{}] Marking stage '{}' as success since the result was cached in a previous run.",
+                    LOGGER.info("[{}] Marking stage '{}' as success since the run output for the stage was not empty.",
                             getRunName(),
                             stage.name());
                     runGraph.removeVertex(stage);
