@@ -3,6 +3,7 @@ package com.hartwig.miniwe.gcloud.storage;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.Storage;
@@ -27,6 +28,14 @@ public class GcloudBucket {
                 .filter(blob -> blob.getName().endsWith("/"))
                 .map(blob -> blob.getName().substring(0, blob.getName().length() - 1))
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    @SuppressWarnings("unused")
+    public void delete() {
+        getBucket().list()
+                .streamAll()
+                .forEach(Blob::delete);
+        getBucket().delete();
     }
 
     private Bucket getBucket() {
