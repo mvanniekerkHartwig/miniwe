@@ -129,7 +129,7 @@ public class WorkflowGraph {
 
             for (final Stage stage : fullGraph.vertexSet()) {
                 if (doneStages.contains(stage.name())) {
-                    LOGGER.info("[{}] Marking stage '{}' as success since the run output for the stage was not empty.",
+                    LOGGER.info("[{}] Marking stage '{}' as success since the run output for the stage is not empty.",
                             getRunName(),
                             stage.name());
                     runGraph.removeVertex(stage);
@@ -197,6 +197,7 @@ public class WorkflowGraph {
                     .collect(Collectors.toList());
             for (Stage stage : readyStages) {
                 if (stage.image().equals(INPUT_IMAGE_NAME)) {
+                    // input stage was not provided before the run started, so we fail the stage immediately.
                     stageDoneQueue.add(Pair.of(stage, false));
                     continue;
                 }

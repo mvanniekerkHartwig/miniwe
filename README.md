@@ -104,7 +104,7 @@ name of the run bucket will be `run-reporting-pipeline-1-0-0-alpha-1-test`.
 During the run, each stage output will be copied to the run bucket, where all output files are placed in the top-level directory
 corresponding with the stage name.
 
-The run bucket must exist prior to execution if input stages are defined. Each input stage corresponds to one top-leel directory.
+The run bucket must exist prior to execution if input stages are defined. Each input stage corresponds to one top-level directory.
 
 Keeping the run bucket and rerunning an execution means that each stage for which a top-level directory already exists will be skipped.
 Suppose the run bucket above already exists, and there is a top-level directory in the bucket called "orange". In that case the stage orange
