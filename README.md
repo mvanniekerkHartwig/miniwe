@@ -47,6 +47,9 @@ name: "reporting-pipeline"
 version: "1.0.0-alpha.1"
 params:
   - primary_tumor_doids
+  - sample_name
+secrets:
+  - db_pass
 inputStages:
   - orange
   - lama
@@ -61,6 +64,19 @@ stages:
     image: "eu.gcr.io/hmf-build/oncoact/protect"
     version: "3.0"
     arguments: "-primary_tumor_doids ${primary_tumor_doids}"
+    inputStages:
+      - orange
+  - name: db-loader
+    image: "eu.gcr.io/hmf-build/oncoact/database"
+    version: "3.0"
+    options:
+      serviceAccount: genomic-db-loader-sa
+      noOutput: true
+    arguments: >-
+      -sample ${sample_name}
+      -db_user build
+      -db_pass ${db_pass}
+      -db_url diagnostic-genomic.sql.pilot-1:3306/hmfpatients
     inputStages:
       - orange
   - name: patient-reporter

@@ -49,6 +49,16 @@ class StageDefinitionTest {
         assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-with-input-k8s.yaml"));
     }
 
+    @Test
+    void simpleStageNoOutputTest() throws IOException {
+        var noOutputStage = simpleStage;
+        var simpleExecutionStage = ExecutionStage.from(noOutputStage, simpleExecution);
+        var stageDefinition =
+                new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
+        assertThat(stageDefinition.getStageName()).isEqualTo("wf-1-0-0-ex-simple-stage");
+        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-with-input-k8s.yaml"));
+    }
+
     private String readResourceAsString(String filename) throws IOException {
         try (var is = getClass().getClassLoader().getResourceAsStream(filename)) {
             return CharStreams.toString(new InputStreamReader(is));

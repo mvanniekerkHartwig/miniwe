@@ -43,6 +43,8 @@ public interface Stage {
      */
     Optional<String> command();
 
+    Optional<StageOptions> options();
+
     static ImmutableStage.Builder builder() {
         return ImmutableStage.builder();
     }

@@ -60,4 +60,17 @@ class DefinitionReaderTest {
                 .build();
         assertThat(result).isEqualTo(expected);
     }
+
+    @Test
+    void parseWorkflowWithOptions() throws IOException {
+        var result = definitionReader.readWorkflow(getClass().getClassLoader().getResourceAsStream("workflow-with-stage-options.yaml"));
+        var stage = Stage.builder()
+                .name("simple-stage")
+                .image("eu.gcr.io/hmf-build/image")
+                .version("1.0.0")
+                .options(StageOptions.builder().serviceAccount("my-service-account").output(false).build())
+                .build();
+        var expected = WorkflowDefinition.builder().name("wf").version("1.0.0").addStages(stage).build();
+        assertThat(result).isEqualTo(expected);
+    }
 }
