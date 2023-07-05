@@ -25,7 +25,10 @@ A workflow is described using a Workflow Definition. This takes the form of a YA
 
 - name: The name of a workflow
 - version: The version of a workflow. MiniWE supports having multiple workflows with the same name if the version number is different.
-- params: List with input parameters of a workflow. The values for these input parameters are defined in the "execution definition".
+- params: List of input parameters for a workflow. The values for these input parameters are defined in the "execution definition".
+- inputStages: List of input stages for a workflow. At the start of the run, these stages are expected to exist as directories in the run
+  bucket. This implies that if input stages are defined, the run bucket must already be created prior to the run so that the input stage
+  data can be populated.
 - stages: All stages of a workflow.
     - name: The name of a stage. This name is used as part of the kubernetes job name, and is used in subsequent stages to refer to as an
       input stage.
@@ -43,32 +46,31 @@ Example workflow definition:
 name: "reporting-pipeline"
 version: "1.0.0-alpha.1"
 params:
-  - patient_id
   - primary_tumor_doids
-  - orange_path
-  - output_path
+inputStages:
+  - orange
+  - lama
+  - silo
 stages:
-  - name: orange
-    image: "eu.gcr.io/hmf-build/google/cloud-sdk"
-    version: "425.0.0"
-    command: "gsutil rsync ${orange_path} /out"
   - name: rose
-    image: "eu.gcr.io/hmf-pipeline-prod-e45b00f2/rose"
-    version: "latest"
-    arguments: "-patient_id ${patient_id}"
+    image: "eu.gcr.io/hmf-build/oncoact/rose"
+    version: "2.0"
     inputStages:
       - orange
   - name: protect
-    image: "eu.gcr.io/hmf-pipeline-prod-e45b00f2/protect"
-    version: "latest"
+    image: "eu.gcr.io/hmf-build/oncoact/protect"
+    version: "3.0"
     arguments: "-primary_tumor_doids ${primary_tumor_doids}"
     inputStages:
       - orange
-  - name: output
-    image: "eu.gcr.io/hmf-build/google/cloud-sdk"
-    version: "425.0.0"
-    command: "gsutil rsync /in ${output_path}"
+  - name: patient-reporter
+    image: "eu.gcr.io/hmf-build/oncoact/patient-reporter"
+    version: "8.0"
+    arguments: "-expected_pipeline_version 5.33"
     inputStages:
+      - orange
+      - lama
+      - silo
       - rose
       - protect
 ```
@@ -87,21 +89,22 @@ output already exists in the run bucket will be skipped. The execution definitio
 Example execution definition for the workflow above:
 
 ```yaml
-name: "test-run"
+name: "test"
 workflow: "reporting-pipeline"
 version: "1.0.0-alpha.1"
 params:
-  patient_id: "pid"
   primary_tumor_doids: "162"
-  orange_path: "gs://reporting-pipeline-test-mvn/in/"
-  output_path: "gs://reporting-pipeline-test-mvn/out/"
 ```
 
 ### Cloud Storage run buckets
 
 Each execution definition corresponds to one unique run bucket.
 The run bucket name takes the structure: `run-{{workflow-name}}-{{workflow-version}}-{{execution-name}}`. So for the execution above the
-name of the run bucket will be `reporting-pipeline-1-0-0-alpha-1-test-run`.
+name of the run bucket will be `run-reporting-pipeline-1-0-0-alpha-1-test`.
+During the run, each stage output will be copied to the run bucket, where all output files are placed in the top-level directory
+corresponding with the stage name.
+
+The run bucket must exist prior to execution if input stages are defined. Each input stage corresponds to one top-leel directory.
 
 Keeping the run bucket and rerunning an execution means that each stage for which a top-level directory already exists will be skipped.
 Suppose the run bucket above already exists, and there is a top-level directory in the bucket called "orange". In that case the stage orange
