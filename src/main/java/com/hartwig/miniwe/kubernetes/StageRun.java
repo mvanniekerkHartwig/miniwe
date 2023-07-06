@@ -16,7 +16,7 @@ interface StageRun {
     boolean waitUntilComplete();
 
     /**
-     * Clean up the kubernetes resources.
+     * Clean up the run resources.
      */
     void cleanup();
 }

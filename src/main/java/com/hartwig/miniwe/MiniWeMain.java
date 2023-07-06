@@ -32,8 +32,8 @@ public class MiniWeMain implements Callable<Integer> {
                         description = "Name of the kubernetes namespace")
     private String kubernetesNamespace;
 
-    @CommandLine.Option(names = { "--k8s-service-account-name" },
-                        description = "Name of the kubernetes job service account")
+    @CommandLine.Option(names = { "--k8s-stage-copy-sa" },
+                        description = "Name of the kubernetes stage copy service account")
     private String kubernetesServiceAccountName;
 
     @CommandLine.Option(names = { "--gcp-project-id" },

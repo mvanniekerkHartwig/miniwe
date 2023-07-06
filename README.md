@@ -209,5 +209,5 @@ src/test/resources/real-execution.yaml \
 --gcp-project-id=hmf-pipeline-development \
 --gcp-region=europe-west4 \
 --k8s-namespace=pilot-1 \
---k8s-service-account-name=pipeline-launcher-sa 
+--k8s-stage-copy-sa=pipeline-launcher-sa 
 ```

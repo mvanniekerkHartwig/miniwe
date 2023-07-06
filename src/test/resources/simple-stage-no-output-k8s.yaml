@@ -12,4 +12,3 @@ spec:
       - image: "eu.gcr.io/hmf-build/image:1.0.0"
         name: "wf-1-0-0-ex-simple-stage"
       restartPolicy: "Never"
-      serviceAccountName: "serviceAccount"

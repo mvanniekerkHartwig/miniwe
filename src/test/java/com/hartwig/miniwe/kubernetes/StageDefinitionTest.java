@@ -5,9 +5,8 @@ import static com.hartwig.miniwe.kubernetes.KubernetesStageScheduler.DEFAULT_STO
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
-import com.google.common.io.CharStreams;
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.ImmutableExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.ImmutableStage;
@@ -60,9 +59,22 @@ class StageDefinitionTest {
         assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-no-output-k8s.yaml"));
     }
 
+    @Test
+    void simpleStageWithServiceAccountTest() throws IOException {
+        var serviceAccountStage = simpleStage.withOptions(StageOptions.builder().serviceAccount("my-sa").build());
+        var simpleExecutionStage = ExecutionStage.from(serviceAccountStage, simpleExecution);
+        var stageDefinition =
+                new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
+        assertThat(stageDefinition.getStageName()).isEqualTo("wf-1-0-0-ex-simple-stage");
+        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-sa-k8s.yaml"));
+    }
+
     private String readResourceAsString(String filename) throws IOException {
         try (var is = getClass().getClassLoader().getResourceAsStream(filename)) {
-            return CharStreams.toString(new InputStreamReader(is));
+            if (is == null) {
+                throw new IOException("Resource could not be found.");
+            }
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
 }

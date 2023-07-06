@@ -28,7 +28,6 @@ spec:
         - mountPath: "/out"
           name: "wf-1-0-0-ex-simple-stage"
       restartPolicy: "Never"
-      serviceAccountName: "serviceAccount"
       volumes:
       - name: "wf-1-0-0-ex-simple-stage"
         persistentVolumeClaim:

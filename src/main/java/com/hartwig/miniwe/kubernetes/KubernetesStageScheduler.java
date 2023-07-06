@@ -22,11 +22,11 @@ public class KubernetesStageScheduler implements StageScheduler {
     private final String namespace;
     private final ExecutorService executor;
     private final BlockingKubernetesClient kubernetesClient;
-    private final String serviceAccountName;
+    private final String stageCopyServiceAccount;
     private final StorageProvider storageProvider;
 
-    public KubernetesStageScheduler(String namespace, BlockingKubernetesClient kubernetesClient, String serviceAccountName) {
-        this.serviceAccountName = serviceAccountName;
+    public KubernetesStageScheduler(String namespace, BlockingKubernetesClient kubernetesClient, String stageCopyServiceAccount) {
+        this.stageCopyServiceAccount = stageCopyServiceAccount;
         this.namespace = namespace;
         this.executor = ExecutorUtil.createExecutorService(MAX_CONCURRENT_STAGES, "stage-run-thread-%d");
         this.kubernetesClient = kubernetesClient;
@@ -39,7 +39,7 @@ public class KubernetesStageScheduler implements StageScheduler {
             throw new IllegalStateException(String.format("Cannot schedule stage with name '%s' since it already exists",
                     executionStage.runName()));
         }
-        var definition = new StageDefinition(executionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
+        var definition = new StageDefinition(executionStage, namespace, DEFAULT_STORAGE_SIZE_GI, stageCopyServiceAccount, storageProvider);
         var stageRun = definition.createStageRun(kubernetesClient);
         stageRunByExecutionStage.put(executionStage, stageRun);
         return CompletableFuture.supplyAsync(() -> {

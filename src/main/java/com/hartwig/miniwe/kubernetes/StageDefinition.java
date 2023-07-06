@@ -31,7 +31,7 @@ public class StageDefinition {
     private final Job onCompleteCopyJob;
     private final boolean hasOutput;
 
-    public StageDefinition(ExecutionStage executionStage, String namespace, int storageSizeGi, String serviceAccountName,
+    public StageDefinition(ExecutionStage executionStage, String namespace, int storageSizeGi, String stageCopyServiceAccount,
             StorageProvider storageProvider) {
         this.stageName = executionStage.getName();
         var stage = executionStage.stage();
@@ -63,7 +63,7 @@ public class StageDefinition {
             mounts.add(new VolumeMountBuilder().withName(outputVolumeName).withMountPath("/out").build());
 
             // create on complete copy job
-            var onCompleteCopyPod = new PodSpecBuilder().withServiceAccountName(serviceAccountName)
+            var onCompleteCopyPod = new PodSpecBuilder().withServiceAccountName(stageCopyServiceAccount)
                     .withContainers(storageProvider.exitStorageContainer(executionStage.bucketName(), stage.name(), outputVolumeName))
                     .withRestartPolicy("Never")
                     .withVolumes(outputVolume)
@@ -83,7 +83,8 @@ public class StageDefinition {
         args.ifPresent(containerBuilder::withArgs);
         command.ifPresent(containerBuilder::withCommand);
         var container = containerBuilder.build();
-        var pod = new PodSpecBuilder().withServiceAccountName(serviceAccountName)
+        var runnerSa = executionStage.stage().options().flatMap(StageOptions::serviceAccount).orElse(null);
+        var pod = new PodSpecBuilder().withServiceAccountName(runnerSa)
                 .withInitContainers(initContainers)
                 .withContainers(container)
                 .withRestartPolicy("Never")
