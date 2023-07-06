@@ -1,6 +1,7 @@
 package com.hartwig.miniwe;
 
 import java.io.FileInputStream;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 import com.google.cloud.storage.StorageOptions;

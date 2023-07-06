@@ -1,6 +1,7 @@
 package com.hartwig.miniwe.workflow;
 
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -27,17 +28,17 @@ public interface ExecutionStage {
         return KubernetesUtil.toValidRFC1123Label(runName(), stage().name());
     }
 
-    static ExecutionStage from(Stage stage, ExecutionDefinition execution) {
-        return from(stage, execution, Map.of());
-    }
-
     static ExecutionStage from(Stage stage, ExecutionDefinition execution, Map<String, String> secretsByEnvVariable) {
         var replaced = replaced(stage, execution.params());
+        var relevantSecrets = secretsByEnvVariable.entrySet()
+                .stream()
+                .filter(entry -> stage.secrets().contains(entry.getKey()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         return ImmutableExecutionStage.builder()
                 .stage(replaced)
                 .runName(execution.getRunName())
                 .bucketName(execution.getBucketName())
-                .secretsByEnvVariable(secretsByEnvVariable)
+                .secretsByEnvVariable(relevantSecrets)
                 .build();
     }
 

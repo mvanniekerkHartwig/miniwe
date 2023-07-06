@@ -46,14 +46,14 @@ public class WorkflowGraph {
     }
 
     public WorkflowGraphExecution getOrCreateRun(StageScheduler stageScheduler, Set<String> cachedStages,
-            ExecutionDefinition executionDefinition) {
+            ExecutionDefinition executionDefinition, Map<String, String> secretsByEnvVariable) {
         if (!executionDefinition.getWorkflowName().equals(workflowDefinition.getWorkflowName())) {
             throw new IllegalArgumentException(String.format("Workflow name '%s' should be the same as execution name, but was '%s'",
                     workflowDefinition.getWorkflowName(),
                     executionDefinition.getWorkflowName()));
         }
         return runsByName.computeIfAbsent(executionDefinition.getRunName(),
-                name -> new WorkflowGraphExecution(stageScheduler, cachedStages, executionDefinition));
+                name -> new WorkflowGraphExecution(stageScheduler, cachedStages, executionDefinition, secretsByEnvVariable));
     }
 
     /**
@@ -114,6 +114,7 @@ public class WorkflowGraph {
         private final DefaultDirectedGraph<Stage, DefaultEdge> runGraph;
         private final StageScheduler stageScheduler;
         private final ExecutionDefinition executionDefinition;
+        private final Map<String, String> secretsByEnvVariable;
         private CompletableFuture<Boolean> doneFuture;
 
         // copy on write map, for viewing the stage state from another thread.
@@ -121,9 +122,10 @@ public class WorkflowGraph {
         private final List<Consumer<Map<String, StageRunningState>>> stageStateSubscribers =
                 Collections.synchronizedList(new ArrayList<>());
 
-        private WorkflowGraphExecution(StageScheduler stageScheduler, Set<String> doneStages, ExecutionDefinition executionDefinition) {
+        private WorkflowGraphExecution(StageScheduler stageScheduler, Set<String> doneStages, ExecutionDefinition executionDefinition, Map<String, String> secretsByEnvVariable) {
             this.stageScheduler = stageScheduler;
             this.executionDefinition = executionDefinition;
+            this.secretsByEnvVariable = secretsByEnvVariable;
             fullGraph = createGraph();
             runGraph = createGraph();
 
@@ -202,7 +204,7 @@ public class WorkflowGraph {
                     continue;
                 }
                 stageNameToRunningState.put(stage.name(), StageRunningState.RUNNING);
-                var executionStage = ExecutionStage.from(stage, executionDefinition);
+                var executionStage = ExecutionStage.from(stage, executionDefinition, secretsByEnvVariable);
                 stageScheduler.schedule(executionStage).thenAccept(result -> stageDoneQueue.add(Pair.of(stage, result)));
             }
             if (!readyStages.isEmpty()) {

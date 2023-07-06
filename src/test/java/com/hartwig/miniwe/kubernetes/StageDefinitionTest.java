@@ -33,7 +33,7 @@ class StageDefinitionTest {
 
     @Test
     void simpleStageTest() throws IOException {
-        var simpleExecutionStage = ExecutionStage.from(simpleStage, simpleExecution);
+        var simpleExecutionStage = ExecutionStage.from(simpleStage, simpleExecution, Map.of());
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
         assertThat(stageDefinition.getStageName()).isEqualTo("wf-1-0-0-ex-simple-stage");
@@ -43,7 +43,7 @@ class StageDefinitionTest {
     @Test
     void stageWithInputTest() throws IOException {
         var withInputStage = simpleStage.withInputStages("stage-a", "stage-b");
-        var simpleExecutionStage = ExecutionStage.from(withInputStage, simpleExecution);
+        var simpleExecutionStage = ExecutionStage.from(withInputStage, simpleExecution, Map.of());
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
         assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("k8s/stage-with-input-k8s.yaml"));
@@ -52,7 +52,7 @@ class StageDefinitionTest {
     @Test
     void stageNoOutputTest() throws IOException {
         var noOutputStage = simpleStage.withOptions(StageOptions.builder().output(false).build());
-        var simpleExecutionStage = ExecutionStage.from(noOutputStage, simpleExecution);
+        var simpleExecutionStage = ExecutionStage.from(noOutputStage, simpleExecution, Map.of());
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
         assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("k8s/stage-no-output-k8s.yaml"));
@@ -61,7 +61,7 @@ class StageDefinitionTest {
     @Test
     void stageWithServiceAccountTest() throws IOException {
         var serviceAccountStage = simpleStage.withOptions(StageOptions.builder().serviceAccount("my-sa").build());
-        var simpleExecutionStage = ExecutionStage.from(serviceAccountStage, simpleExecution);
+        var simpleExecutionStage = ExecutionStage.from(serviceAccountStage, simpleExecution, Map.of());
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
         assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("k8s/stage-sa-k8s.yaml"));

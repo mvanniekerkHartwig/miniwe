@@ -1,5 +1,6 @@
 package com.hartwig.miniwe;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -38,10 +39,14 @@ public class MiniWorkflowEngine {
     }
 
     public CompletableFuture<Boolean> findOrStartRun(ExecutionDefinition executionDefinition) {
+        return findOrStartRun(executionDefinition, Map.of());
+    }
+
+    public CompletableFuture<Boolean> findOrStartRun(ExecutionDefinition executionDefinition, Map<String, String> secretsByEnvVariable) {
         LOGGER.info("[{}] Starting run", executionDefinition.getRunName());
         WorkflowGraph workflowGraph = getWorkflowGraph(executionDefinition);
         var bucket = gcloudStorage.findOrCreateBucket(executionDefinition.getBucketName());
-        var run = workflowGraph.getOrCreateRun(kubernetesStageScheduler, bucket.getCachedStages(), executionDefinition);
+        var run = workflowGraph.getOrCreateRun(kubernetesStageScheduler, bucket.getCachedStages(), executionDefinition, secretsByEnvVariable);
         run.subscribe(stage -> LOGGER.info("[{}] Execution graph updated: {}", run.getRunName(), run.toDotFormat()));
         return run.findOrStart();
     }

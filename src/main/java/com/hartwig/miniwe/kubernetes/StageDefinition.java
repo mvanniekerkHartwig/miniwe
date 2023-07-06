@@ -129,9 +129,9 @@ public class StageDefinition {
 
     public StageRun createStageRun(BlockingKubernetesClient client) {
         if (hasOutput) {
-            return new OutputStageRun(outputPvc, job, onCompleteCopyJob, client);
+            return new OutputStageRun(outputPvc, job, onCompleteCopyJob, secret, client);
         }
-        return new NoOutputStageRun(job, client);
+        return new NoOutputStageRun(job, secret, client);
     }
 
     @Override

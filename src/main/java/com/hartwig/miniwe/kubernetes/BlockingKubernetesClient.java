@@ -9,10 +9,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
+import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
+import io.fabric8.kubernetes.client.dsl.Resource;
 
 /**
  * Wrapper around the fabric8 Kubernetes client.
@@ -29,6 +31,11 @@ public class BlockingKubernetesClient implements Closeable {
     public void create(PersistentVolumeClaim persistentVolumeClaim) {
         client.persistentVolumeClaims().resource(persistentVolumeClaim).create();
         LOGGER.info("Created persistent volume claim with name [{}]", persistentVolumeClaim.getMetadata().getName());
+    }
+
+    public void create(Secret secret) {
+        client.secrets().resource(secret).create();
+        LOGGER.info("Created secret with name [{}]", secret.getMetadata().getName());
     }
 
     public void create(Job job) {
@@ -65,6 +72,14 @@ public class BlockingKubernetesClient implements Closeable {
         if (pvcResource.get() != null) {
             LOGGER.info("Deleting persistent volume with name [{}]", pvc.getMetadata().getName());
             pvcResource.withTimeout(30, TimeUnit.SECONDS).delete();
+        }
+    }
+
+    public void deleteIfExists(Secret secret) {
+        var secretResource = client.secrets().resource(secret);
+        if (secretResource.get() != null) {
+            LOGGER.info("Deleting secret with name [{}]", secret.getMetadata().getName());
+            secretResource.withTimeout(30, TimeUnit.SECONDS).delete();
         }
     }
 

@@ -31,6 +31,8 @@ import com.hartwig.miniwe.miniwdl.WorkflowDefinition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
 @Timeout(5)
 class WorkflowGraphTest {
@@ -41,6 +43,7 @@ class WorkflowGraphTest {
     private WorkflowDefinition veryConcurrentWorkflow;
     private WorkflowDefinition linearWorkflow;
     private WorkflowDefinition inputWorkflow;
+    private WorkflowDefinition secretWorkflow;
 
     @BeforeEach
     void setUp() throws IOException {
@@ -56,13 +59,18 @@ class WorkflowGraphTest {
                 new DefinitionReader().readWorkflow(classLoader.getResourceAsStream("very-concurrent-stage-workflow.yaml"));
         linearWorkflow = new DefinitionReader().readWorkflow(classLoader.getResourceAsStream("linear-stage-workflow.yaml"));
         inputWorkflow = new DefinitionReader().readWorkflow(classLoader.getResourceAsStream("workflow-with-inputs.yaml"));
+        secretWorkflow = new DefinitionReader().readWorkflow(classLoader.getResourceAsStream("secret-workflow.yaml"));
     }
 
     @Test
     void workflowNameShouldEqualExecutionName() {
         var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
         var e = assertThrows(IllegalArgumentException.class,
-                () -> workflowGraph.getOrCreateRun(mock(StageScheduler.class), Set.of(), simpleExecution.withWorkflow("other-workflow")));
+                () -> {
+                    StageScheduler stageScheduler = mock(StageScheduler.class);
+                    ExecutionDefinition executionDefinition = simpleExecution.withWorkflow("other-workflow");
+                    workflowGraph.getOrCreateRun(stageScheduler, Set.of(), executionDefinition, Map.of());
+                });
         assertThat(e.getMessage()).isEqualTo("Workflow name 'wf-1-0-0' should be the same as execution name, but was 'other-workflow-1-0-0'");
     }
 
@@ -72,7 +80,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var result = run.findOrStart();
         assertThat(result.get()).isTrue();
         assertThat(run.getStageStateView()).isEqualTo(Map.of("simple-stage", WorkflowGraph.StageRunningState.SUCCESS));
@@ -88,7 +96,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenAnswer(stage -> CompletableFuture.completedFuture(true));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         run.subscribe(stageStates::add);
 
         assertThat(run.findOrStart().get()).isTrue();
@@ -104,7 +112,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var result = run.findOrStart();
         assertThat(result.get()).isTrue();
         assertThat(run.toDotFormat()).isEqualTo("strict digraph G {\n" + "  1 [ label=\"simple-stage\" color=\"green\" ];\n" + "}\n");
@@ -116,7 +124,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(false));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var result = run.findOrStart();
         assertThat(result.get()).isFalse();
         assertThat(run.getStageStateView()).isEqualTo(Map.of("simple-stage", WorkflowGraph.StageRunningState.FAILED));
@@ -131,7 +139,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenAnswer(stage -> CompletableFuture.completedFuture(false));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         run.subscribe(stageStates::add);
 
         assertThat(run.findOrStart().get()).isFalse();
@@ -147,7 +155,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(false));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var result = run.findOrStart();
         assertThat(result.get()).isFalse();
         assertThat(run.toDotFormat()).isEqualTo("strict digraph G {\n" + "  1 [ label=\"simple-stage\" color=\"red\" ];\n" + "}\n");
@@ -159,8 +167,8 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution).findOrStart().get();
-        var sameRun = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of()).findOrStart().get();
+        var sameRun = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         assertThat(sameRun.getStageStateView()).isEqualTo(Map.of("simple-stage", WorkflowGraph.StageRunningState.SUCCESS));
     }
 
@@ -170,9 +178,9 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution).findOrStart().get();
+        workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of()).findOrStart().get();
         workflowGraph.delete(simpleExecution);
-        var newRun = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var newRun = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         assertThat(newRun.getStageStateView()).isEqualTo(Map.of("simple-stage", WorkflowGraph.StageRunningState.WAITING));
     }
 
@@ -190,7 +198,7 @@ class WorkflowGraphTest {
             }
         })).when(stageScheduler).schedule(any());
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var success = run.findOrStart();
         run.cancel();
         assertThat(success.get()).isFalse();
@@ -211,7 +219,7 @@ class WorkflowGraphTest {
             }
         })).when(stageScheduler).schedule(any());
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var success = run.findOrStart();
         workflowGraph.delete(simpleExecution);
         assertThat(success.get()).isFalse();
@@ -229,7 +237,7 @@ class WorkflowGraphTest {
     void cancellingRunBeforeStartingFails() {
         var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
         var stageScheduler = mock(StageScheduler.class);
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var e = assertThrows(IllegalStateException.class, run::cancel);
         assertThat(e.getMessage()).isEqualTo("Cannot cancel run that was not started yet.");
     }
@@ -239,7 +247,7 @@ class WorkflowGraphTest {
         var workflowGraph = new WorkflowGraph(simpleWorkflow, ForkJoinPool.commonPool());
         var stageScheduler = mock(StageScheduler.class);
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("simple-stage"), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("simple-stage"), simpleExecution, Map.of());
         assertThat(run.findOrStart().get()).isTrue();
         assertThat(run.getStageStateView()).isEqualTo(Map.of("simple-stage", WorkflowGraph.StageRunningState.SUCCESS));
         verifyNoMoreInteractions(stageScheduler);
@@ -251,7 +259,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
 
         run.findOrStart().get();
         clearInvocations(stageScheduler);
@@ -268,8 +276,9 @@ class WorkflowGraphTest {
         var otherScheduler = mock(StageScheduler.class);
         when(otherScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(false));
 
-        var run1 = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution).findOrStart();
-        var run2 = workflowGraph.getOrCreateRun(otherScheduler, Set.of(), simpleExecution.withName("other-execution")).findOrStart();
+        var run1 = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of()).findOrStart();
+        ExecutionDefinition executionDefinition = simpleExecution.withName("other-execution");
+        var run2 = workflowGraph.getOrCreateRun(otherScheduler, Set.of(), executionDefinition, Map.of()).findOrStart();
         assertThat(run2.get()).isFalse();
         assertThat(run1.get()).isTrue();
     }
@@ -280,7 +289,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var result = run.findOrStart();
         assertThat(result.get()).isTrue();
         var expected = Map.of("stage-b", WorkflowGraph.StageRunningState.SUCCESS, "stage-a", WorkflowGraph.StageRunningState.SUCCESS);
@@ -296,7 +305,7 @@ class WorkflowGraphTest {
         doReturn(CompletableFuture.completedFuture(false)).when(stageScheduler)
                 .schedule(argThat(stage -> stage.stage().name().equals("stage-b")));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var result = run.findOrStart();
         assertThat(result.get()).isFalse();
         var expected = Map.of("stage-b", WorkflowGraph.StageRunningState.FAILED, "stage-a", WorkflowGraph.StageRunningState.SUCCESS);
@@ -346,7 +355,7 @@ class WorkflowGraphTest {
             }
         })).when(stageScheduler).schedule(argThat(stage -> stage.stage().name().equals("stage-d")));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var stageStates = new ArrayList<Map<String, WorkflowGraph.StageRunningState>>();
         run.subscribe(stageStates::add);
 
@@ -371,7 +380,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenAnswer(stage -> CompletableFuture.completedFuture(true));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         run.subscribe(stageStates::add);
 
         assertThat(run.findOrStart().get()).isTrue();
@@ -407,7 +416,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenAnswer(stage -> CompletableFuture.completedFuture(true));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("stage-a"), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("stage-a"), simpleExecution, Map.of());
         run.subscribe(stageStates::add);
 
         assertThat(run.findOrStart().get()).isTrue();
@@ -435,7 +444,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenAnswer(stage -> CompletableFuture.completedFuture(false));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         run.subscribe(stageStates::add);
 
         assertThat(run.findOrStart().get()).isFalse();
@@ -460,7 +469,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("input-stage"), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of("input-stage"), simpleExecution, Map.of());
         var result = run.findOrStart();
         assertThat(result.get()).isTrue();
         assertThat(run.getStageStateView()).isEqualTo(Map.of("input-stage",
@@ -475,7 +484,7 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var result = run.findOrStart();
         assertThat(result.get()).isFalse();
         assertThat(run.getStageStateView()).isEqualTo(Map.of("input-stage",
@@ -491,12 +500,26 @@ class WorkflowGraphTest {
         var stageScheduler = mock(StageScheduler.class);
         when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution);
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of());
         var result = run.findOrStart();
         assertThat(result.get()).isFalse();
         assertThat(run.getStageStateView()).isEqualTo(Map.of("input-stage",
                 WorkflowGraph.StageRunningState.FAILED,
                 "simple-stage",
                 WorkflowGraph.StageRunningState.SUCCESS));
+    }
+
+    @Test
+    void testStageWithSecretIsPassed() throws ExecutionException, InterruptedException {
+        var workflowGraph = new WorkflowGraph(secretWorkflow, ForkJoinPool.commonPool());
+        var stageScheduler = mock(StageScheduler.class);
+        when(stageScheduler.schedule(any())).thenReturn(CompletableFuture.completedFuture(true));
+
+        var run = workflowGraph.getOrCreateRun(stageScheduler, Set.of(), simpleExecution, Map.of("PASSWORD", "my-password"));
+        var result = run.findOrStart();
+        assertThat(result.get()).isTrue();
+        var captor = ArgumentCaptor.forClass(ExecutionStage.class);
+        Mockito.verify(stageScheduler).schedule(captor.capture());
+        assertThat(captor.getValue().secretsByEnvVariable()).isEqualTo(Map.of("PASSWORD", "my-password"));
     }
 }

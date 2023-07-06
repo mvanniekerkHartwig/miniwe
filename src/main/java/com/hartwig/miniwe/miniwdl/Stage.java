@@ -48,6 +48,9 @@ public interface Stage {
      */
     Optional<StageOptions> options();
 
+    /**
+     * List of secret environment variables for this stage.
+     */
     List<String> secrets();
 
     static ImmutableStage.Builder builder() {

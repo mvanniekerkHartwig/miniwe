@@ -29,6 +29,11 @@ public interface WorkflowDefinition {
     List<String> params();
 
     /**
+     * List of secret environment variables for all stages.
+     */
+    List<String> secrets();
+
+    /**
      * Input stages required for this workflow definition
      */
     List<String> inputStages();

@@ -24,7 +24,7 @@ class ExecutionStageTest {
 
     @Test
     void testSimpleStage() {
-        var executionStage = ExecutionStage.from(simpleStage, simpleExecution);
+        var executionStage = ExecutionStage.from(simpleStage, simpleExecution, Map.of());
         assertThat(executionStage.stage()).isEqualTo(simpleStage);
         assertThat(executionStage.runName()).isEqualTo("wf-1-0-0-ex");
     }
@@ -33,7 +33,7 @@ class ExecutionStageTest {
     void stageKeysGetReplacedInArgument() {
         var paramExecution = simpleExecution.withParams(Map.of("param", "1"));
         var paramStage = simpleStage.withArguments("${param} --flag");
-        var executionStage = ExecutionStage.from(paramStage, paramExecution);
+        var executionStage = ExecutionStage.from(paramStage, paramExecution, Map.of());
 
         assertThat(executionStage.stage().arguments().get()).isEqualTo("1 --flag");
     }
@@ -42,8 +42,21 @@ class ExecutionStageTest {
     void stageKeysGetReplacedInCommand() {
         var paramExecution = simpleExecution.withParams(Map.of("param", "1"));
         var paramStage = simpleStage.withCommand("${param} --flag");
-        var executionStage = ExecutionStage.from(paramStage, paramExecution);
+        var executionStage = ExecutionStage.from(paramStage, paramExecution, Map.of());
 
         assertThat(executionStage.stage().command().get()).isEqualTo("1 --flag");
+    }
+
+    @Test
+    void notNecessarySecretsDoNotGetPassed() {
+        var executionStage = ExecutionStage.from(simpleStage, simpleExecution, Map.of("PASSWORD", "my-password"));
+        assertThat(executionStage.secretsByEnvVariable()).isEmpty();
+    }
+
+    @Test
+    void necessarySecretsGetPassed() {
+        var secretStage = simpleStage.withSecrets("PASSWORD");
+        var executionStage = ExecutionStage.from(secretStage, simpleExecution, Map.of("PASSWORD", "my-password"));
+        assertThat(executionStage.secretsByEnvVariable()).isEqualTo(Map.of("PASSWORD", "my-password"));
     }
 }

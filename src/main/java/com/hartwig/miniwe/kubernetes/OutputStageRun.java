@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
+import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 
 class OutputStageRun implements StageRun {
@@ -15,13 +16,16 @@ class OutputStageRun implements StageRun {
     private final PersistentVolumeClaim persistentVolumeClaim;
     private final Job job;
     private final Job onCompleteCopyJob;
+    private final Secret secret;
 
     private final BlockingKubernetesClient client;
 
-    OutputStageRun(PersistentVolumeClaim persistentVolumeClaim, Job job, Job onCompleteCopyJob, BlockingKubernetesClient client) {
+    OutputStageRun(PersistentVolumeClaim persistentVolumeClaim, Job job, Job onCompleteCopyJob, Secret secret,
+            BlockingKubernetesClient client) {
         this.persistentVolumeClaim = persistentVolumeClaim;
         this.job = job;
         this.onCompleteCopyJob = onCompleteCopyJob;
+        this.secret = secret;
         this.client = client;
     }
 
@@ -29,6 +33,9 @@ class OutputStageRun implements StageRun {
     public void start() {
         cleanup();
         client.create(persistentVolumeClaim);
+        if (secret != null) {
+            client.create(secret);
+        }
         client.create(job);
     }
 
@@ -44,6 +51,7 @@ class OutputStageRun implements StageRun {
 
     @Override
     public void cleanup() {
+        client.deleteIfExists(secret);
         client.deleteIfExists(job);
         client.deleteIfExists(onCompleteCopyJob);
         client.deleteIfExists(persistentVolumeClaim);
