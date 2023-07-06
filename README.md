@@ -71,7 +71,7 @@ stages:
     version: "3.0"
     options:
       serviceAccount: genomic-db-loader-sa
-      noOutput: true
+      output: false
     arguments: >-
       -sample ${sample_name}
       -db_user build

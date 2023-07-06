@@ -1,0 +1,15 @@
+---
+apiVersion: "batch/v1"
+kind: "Job"
+metadata:
+  name: "wf-1-0-0-ex-simple-stage"
+  namespace: "namespace"
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      containers:
+      - image: "eu.gcr.io/hmf-build/image:1.0.0"
+        name: "wf-1-0-0-ex-simple-stage"
+      restartPolicy: "Never"
+      serviceAccountName: "serviceAccount"

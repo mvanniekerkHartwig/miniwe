@@ -12,6 +12,7 @@ import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.ImmutableExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.ImmutableStage;
 import com.hartwig.miniwe.miniwdl.Stage;
+import com.hartwig.miniwe.miniwdl.StageOptions;
 import com.hartwig.miniwe.workflow.ExecutionStage;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -51,12 +52,12 @@ class StageDefinitionTest {
 
     @Test
     void simpleStageNoOutputTest() throws IOException {
-        var noOutputStage = simpleStage;
+        var noOutputStage = simpleStage.withOptions(StageOptions.builder().output(false).build());
         var simpleExecutionStage = ExecutionStage.from(noOutputStage, simpleExecution);
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
         assertThat(stageDefinition.getStageName()).isEqualTo("wf-1-0-0-ex-simple-stage");
-        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-with-input-k8s.yaml"));
+        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-no-output-k8s.yaml"));
     }
 
     private String readResourceAsString(String filename) throws IOException {
