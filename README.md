@@ -49,7 +49,7 @@ params:
   - primary_tumor_doids
   - sample_name
 secrets:
-  - db_pass
+  - DB_PASS
 inputStages:
   - orange
   - lama
@@ -75,8 +75,9 @@ stages:
     arguments: >-
       -sample ${sample_name}
       -db_user build
-      -db_pass ${db_pass}
       -db_url diagnostic-genomic.sql.pilot-1:3306/hmfpatients
+    secrets:
+      - DB_PASS
     inputStages:
       - orange
   - name: patient-reporter

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 import com.hartwig.miniwe.miniwdl.ExecutionDefinition;
 import com.hartwig.miniwe.miniwdl.ImmutableExecutionDefinition;
@@ -36,37 +37,43 @@ class StageDefinitionTest {
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
         assertThat(stageDefinition.getStageName()).isEqualTo("wf-1-0-0-ex-simple-stage");
-        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-k8s.yaml"));
+        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("k8s/simple-stage-k8s.yaml"));
     }
 
     @Test
-    void simpleStageWithInputTest() throws IOException {
+    void stageWithInputTest() throws IOException {
         var withInputStage = simpleStage.withInputStages("stage-a", "stage-b");
         var simpleExecutionStage = ExecutionStage.from(withInputStage, simpleExecution);
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
-        assertThat(stageDefinition.getStageName()).isEqualTo("wf-1-0-0-ex-simple-stage");
-        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-with-input-k8s.yaml"));
+        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("k8s/stage-with-input-k8s.yaml"));
     }
 
     @Test
-    void simpleStageNoOutputTest() throws IOException {
+    void stageNoOutputTest() throws IOException {
         var noOutputStage = simpleStage.withOptions(StageOptions.builder().output(false).build());
         var simpleExecutionStage = ExecutionStage.from(noOutputStage, simpleExecution);
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
-        assertThat(stageDefinition.getStageName()).isEqualTo("wf-1-0-0-ex-simple-stage");
-        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-no-output-k8s.yaml"));
+        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("k8s/stage-no-output-k8s.yaml"));
     }
 
     @Test
-    void simpleStageWithServiceAccountTest() throws IOException {
+    void stageWithServiceAccountTest() throws IOException {
         var serviceAccountStage = simpleStage.withOptions(StageOptions.builder().serviceAccount("my-sa").build());
         var simpleExecutionStage = ExecutionStage.from(serviceAccountStage, simpleExecution);
         var stageDefinition =
                 new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
-        assertThat(stageDefinition.getStageName()).isEqualTo("wf-1-0-0-ex-simple-stage");
-        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("simple-stage-sa-k8s.yaml"));
+        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("k8s/stage-sa-k8s.yaml"));
+    }
+
+    @Test
+    void stageWithSecretTest() throws IOException {
+        var secretStage = simpleStage.withSecrets("PASSWORD");
+        var simpleExecutionStage = ExecutionStage.from(secretStage, simpleExecution, Map.of("PASSWORD", "my-password"));
+        var stageDefinition =
+                new StageDefinition(simpleExecutionStage, namespace, DEFAULT_STORAGE_SIZE_GI, serviceAccountName, storageProvider);
+        assertThat(stageDefinition.toString()).isEqualTo(readResourceAsString("k8s/stage-with-secret-k8s.yaml"));
     }
 
     private String readResourceAsString(String filename) throws IOException {

@@ -21,16 +21,23 @@ public interface ExecutionStage {
 
     String bucketName();
 
+    Map<String, String> secretsByEnvVariable();
+
     default String getName() {
         return KubernetesUtil.toValidRFC1123Label(runName(), stage().name());
     }
 
     static ExecutionStage from(Stage stage, ExecutionDefinition execution) {
+        return from(stage, execution, Map.of());
+    }
+
+    static ExecutionStage from(Stage stage, ExecutionDefinition execution, Map<String, String> secretsByEnvVariable) {
         var replaced = replaced(stage, execution.params());
         return ImmutableExecutionStage.builder()
                 .stage(replaced)
                 .runName(execution.getRunName())
                 .bucketName(execution.getBucketName())
+                .secretsByEnvVariable(secretsByEnvVariable)
                 .build();
     }
 

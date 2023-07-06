@@ -43,7 +43,12 @@ public interface Stage {
      */
     Optional<String> command();
 
+    /**
+     * Additional options for configuring the stage runtime.
+     */
     Optional<StageOptions> options();
+
+    List<String> secrets();
 
     static ImmutableStage.Builder builder() {
         return ImmutableStage.builder();

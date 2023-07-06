@@ -1,0 +1,10 @@
+name: "wf"
+version: "1.0.0"
+stages:
+  - name: "simple-stage"
+    image: "eu.gcr.io/hmf-build/image"
+    version: "1.0.0"
+    arguments: >-
+      -sample sample-name
+      -db_user build
+      -db_url diagnostic-genomic.sql.pilot-1:3306/hmfpatients

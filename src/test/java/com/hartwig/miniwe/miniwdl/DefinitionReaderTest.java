@@ -73,4 +73,17 @@ class DefinitionReaderTest {
         var expected = WorkflowDefinition.builder().name("wf").version("1.0.0").addStages(stage).build();
         assertThat(result).isEqualTo(expected);
     }
+
+    @Test
+    void parseWorkflowWithMultilineArgs() throws IOException {
+        var result = definitionReader.readWorkflow(getClass().getClassLoader().getResourceAsStream("workflow-with-multiline-args.yaml"));
+        var stage = Stage.builder()
+                .name("simple-stage")
+                .image("eu.gcr.io/hmf-build/image")
+                .version("1.0.0")
+                .arguments("-sample sample-name -db_user build -db_url diagnostic-genomic.sql.pilot-1:3306/hmfpatients")
+                .build();
+        var expected = WorkflowDefinition.builder().name("wf").version("1.0.0").addStages(stage).build();
+        assertThat(result).isEqualTo(expected);
+    }
 }
