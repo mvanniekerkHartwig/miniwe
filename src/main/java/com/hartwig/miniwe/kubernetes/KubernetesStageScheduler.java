@@ -44,8 +44,7 @@ public class KubernetesStageScheduler implements StageScheduler {
         stageRunByExecutionStage.put(executionStage, stageRun);
         return CompletableFuture.supplyAsync(() -> {
             try {
-                stageRun.start();
-                var success = stageRun.waitUntilComplete();
+                var success = stageRun.start();
                 LOGGER.info("[{}] Stage completed with status '{}'", definition.getStageName(), success ? "Success" : "Failed");
                 if (success) {
                     LOGGER.info("[{}] Cleaning up resources...", definition.getStageName());

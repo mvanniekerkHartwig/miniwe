@@ -74,6 +74,7 @@ stages:
       output: false
     arguments: >-
       -sample ${sample_name}
+      -db_pass_env_variable DB_PASS
       -db_user build
       -db_url diagnostic-genomic.sql.pilot-1:3306/hmfpatients
     secrets:

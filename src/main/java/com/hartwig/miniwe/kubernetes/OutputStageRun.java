@@ -1,59 +1,66 @@
 package com.hartwig.miniwe.kubernetes;
 
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 
 class OutputStageRun implements StageRun {
-    private static final Logger LOGGER = LoggerFactory.getLogger(OutputStageRun.class);
     private static final int STAGE_TIMEOUT_MINUTES = 15;
 
-    private final PersistentVolumeClaim persistentVolumeClaim;
-    private final Job job;
-    private final Job onCompleteCopyJob;
+    private final List<PersistentVolumeClaim> pvcs;
+    private final List<Job> jobs;
     private final Secret secret;
 
     private final BlockingKubernetesClient client;
 
-    OutputStageRun(PersistentVolumeClaim persistentVolumeClaim, Job job, Job onCompleteCopyJob, Secret secret,
-            BlockingKubernetesClient client) {
-        this.persistentVolumeClaim = persistentVolumeClaim;
-        this.job = job;
-        this.onCompleteCopyJob = onCompleteCopyJob;
+    OutputStageRun(PersistentVolumeClaim inputPvc, PersistentVolumeClaim outputPvc, Job stageJob, Job inputJob, Job onCompleteCopyJob,
+            Secret secret, BlockingKubernetesClient client) {
+        this.pvcs = Stream.of(inputPvc, outputPvc).filter(Objects::nonNull).collect(Collectors.toList());
+        this.jobs = Stream.of(inputJob, stageJob, onCompleteCopyJob).filter(Objects::nonNull).collect(Collectors.toList());
         this.secret = secret;
         this.client = client;
     }
 
     @Override
-    public void start() {
+    public boolean start() {
         cleanup();
-        client.create(persistentVolumeClaim);
+        for (final PersistentVolumeClaim pvc : pvcs) {
+            client.create(pvc);
+        }
         if (secret != null) {
             client.create(secret);
         }
-        client.create(job);
+        return runInOrder(jobs);
     }
 
-    @Override
-    public boolean waitUntilComplete() {
-        var jobSucceeded = client.waitUntilJobComplete(job, STAGE_TIMEOUT_MINUTES, TimeUnit.MINUTES);
-        if (!jobSucceeded) {
-            return false;
+    private boolean runInOrder(List<Job> jobs) {
+        for (final Job job : jobs) {
+            client.create(job);
+            var jobSucceeded = client.waitUntilJobComplete(job, STAGE_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+            if (!jobSucceeded) {
+                return false;
+            }
+            client.deleteIfExists(job);
         }
-        client.create(onCompleteCopyJob);
-        return client.waitUntilJobComplete(onCompleteCopyJob, STAGE_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+        return true;
     }
 
     @Override
     public void cleanup() {
-        client.deleteIfExists(secret);
-        client.deleteIfExists(job);
-        client.deleteIfExists(onCompleteCopyJob);
-        client.deleteIfExists(persistentVolumeClaim);
+        for (Job job : jobs) {
+            client.deleteIfExists(job);
+        }
+        for (final PersistentVolumeClaim pvc : pvcs) {
+            client.deleteIfExists(pvc);
+        }
+        if (secret != null) {
+            client.deleteIfExists(secret);
+        }
     }
 }

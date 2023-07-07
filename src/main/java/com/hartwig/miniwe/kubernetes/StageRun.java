@@ -5,15 +5,10 @@ package com.hartwig.miniwe.kubernetes;
  */
 interface StageRun {
     /**
-     * Start the run of a stage
-     */
-    void start();
-
-    /**
-     * Block until the run is complete.
+     * Start the run of a stage, and block until the stage is complete
      * @return true if the run succeeded
      */
-    boolean waitUntilComplete();
+    boolean start();
 
     /**
      * Clean up the run resources.

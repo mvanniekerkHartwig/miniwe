@@ -32,11 +32,12 @@ import io.fabric8.kubernetes.client.utils.Serialization;
 
 public class StageDefinition {
     private final String stageName;
-    private final PersistentVolumeClaim outputPvc;
+    private PersistentVolumeClaim inputPvc = null;
+    private Job inputJob = null;
+    private Secret secret = null;
     private final Job job;
-    private final Job onCompleteCopyJob;
-    private final Secret secret;
-    private final boolean hasOutput;
+    private PersistentVolumeClaim outputPvc = null;
+    private Job onCompleteCopyJob = null;
 
     public StageDefinition(ExecutionStage executionStage, String namespace, int storageSizeGi, String stageCopyServiceAccount,
             StorageProvider storageProvider) {
@@ -45,31 +46,40 @@ public class StageDefinition {
         var imageName = String.format("%s:%s", stage.image(), stage.version());
 
         var args = stage.arguments().map(arguments -> List.of(arguments.split(" ")));
-        var command = stage.command().map(a -> List.of(a.split(" ")));
-        hasOutput = executionStage.stage().options().map(StageOptions::output).orElse(true);
+        var command = stage.command().map(cmd -> List.of(cmd.split(" ")));
 
         List<EnvVar> environmentVariables = new ArrayList<>();
         List<Volume> volumes = new ArrayList<>();
         List<VolumeMount> mounts = new ArrayList<>();
-        List<Container> initContainers = new ArrayList<>();
-        for (final String inputStage : stage.inputStages()) {
-            var volumeName = KubernetesUtil.toValidRFC1123Label(executionStage.runName(), inputStage);
 
-            volumes.add(new VolumeBuilder().withName(volumeName).withNewEmptyDir().and().build());
-            mounts.add(new VolumeMountBuilder().withName(volumeName).withMountPath("/in/" + inputStage).build());
-            initContainers.add(storageProvider.initStorageContainer(executionStage.bucketName(), inputStage, volumeName));
+        var hasInput = !stage.inputStages().isEmpty();
+        if (hasInput) {
+            String inputName = KubernetesUtil.toValidRFC1123Label(stageName, "in");
+            List<Container> containers = new ArrayList<>();
+            for (final String inputStage : stage.inputStages()) {
+                containers.add(storageProvider.initStorageContainer(executionStage.bucketName(), inputStage, inputName));
+            }
+            Volume inputVolume = new VolumeBuilder().withName(inputName).withNewPersistentVolumeClaim(inputName, false).build();
+            volumes.add(inputVolume);
+            mounts.add(new VolumeMountBuilder().withName(inputName).withMountPath("/in").build());
+
+            inputPvc = persistentVolumeClaim(inputName, storageSizeGi, namespace);
+            inputJob = job(inputName,
+                    containers,
+                    List.of(inputVolume),
+                    namespace,
+                    stageCopyServiceAccount);
         }
 
-        if (executionStage.secretsByEnvVariable().isEmpty()) {
-            secret = null;
-        } else {
+        var hasSecret = !executionStage.secretsByEnvVariable().isEmpty();
+        if (hasSecret) {
             String secretName = KubernetesUtil.toValidRFC1123Label(stageName);
-            secret = new SecretBuilder()
-                    .withNewMetadata()
+            secret = new SecretBuilder().withNewMetadata()
                     .withName(secretName)
                     .withNamespace(namespace)
                     .endMetadata()
-                    .withStringData(executionStage.secretsByEnvVariable()).build();
+                    .withStringData(executionStage.secretsByEnvVariable())
+                    .build();
 
             for (var envVariable : executionStage.secretsByEnvVariable().keySet()) {
                 var envVar = new EnvVarBuilder().withName(envVariable)
@@ -79,31 +89,20 @@ public class StageDefinition {
             }
         }
 
-        if (!hasOutput) {
-            onCompleteCopyJob = null;
-            outputPvc = null;
-        } else {
-            String outputVolumeName = KubernetesUtil.toValidRFC1123Label(stageName);
-            outputPvc = persistentVolumeClaim(outputVolumeName, storageSizeGi, namespace);
-            var outputVolume = new VolumeBuilder().withName(outputVolumeName).withNewPersistentVolumeClaim(outputVolumeName, false).build();
+        var hasOutput = executionStage.stage().options().map(StageOptions::output).orElse(true);
+        if (hasOutput) {
+            String outputName = KubernetesUtil.toValidRFC1123Label(stageName, "out");
+            outputPvc = persistentVolumeClaim(outputName, storageSizeGi, namespace);
+            Volume outputVolume = new VolumeBuilder().withName(outputName).withNewPersistentVolumeClaim(outputName, false).build();
             volumes.add(outputVolume);
-            mounts.add(new VolumeMountBuilder().withName(outputVolumeName).withMountPath("/out").build());
+            mounts.add(new VolumeMountBuilder().withName(outputName).withMountPath("/out").build());
 
             // create on complete copy job
-            var onCompleteCopyPod = new PodSpecBuilder().withServiceAccountName(stageCopyServiceAccount)
-                    .withContainers(storageProvider.exitStorageContainer(executionStage.bucketName(), stage.name(), outputVolumeName))
-                    .withRestartPolicy("Never")
-                    .withVolumes(outputVolume)
-                    .build();
-
-            var onCompleteCopySpec =
-                    new JobSpecBuilder().withBackoffLimit(1).withNewTemplate().withSpec(onCompleteCopyPod).endTemplate().build();
-            onCompleteCopyJob = new JobBuilder().withNewMetadata()
-                    .withName(KubernetesUtil.toValidRFC1123Label(stageName, "cp"))
-                    .withNamespace(namespace)
-                    .endMetadata()
-                    .withSpec(onCompleteCopySpec)
-                    .build();
+            onCompleteCopyJob = job(outputName,
+                    List.of(storageProvider.exitStorageContainer(executionStage.bucketName(), stage.name(), outputName)),
+                    List.of(outputVolume),
+                    namespace,
+                    stageCopyServiceAccount);
         }
 
         var containerBuilder =
@@ -112,15 +111,7 @@ public class StageDefinition {
         command.ifPresent(containerBuilder::withCommand);
         var container = containerBuilder.build();
         var runnerSa = executionStage.stage().options().flatMap(StageOptions::serviceAccount).orElse(null);
-        var pod = new PodSpecBuilder().withServiceAccountName(runnerSa)
-                .withInitContainers(initContainers)
-                .withContainers(container)
-                .withRestartPolicy("Never")
-                .withVolumes(volumes)
-                .build();
-
-        var jobSpec = new JobSpecBuilder().withBackoffLimit(1).withNewTemplate().withSpec(pod).endTemplate().build();
-        job = new JobBuilder().withNewMetadata().withName(stageName).withNamespace(namespace).endMetadata().withSpec(jobSpec).build();
+        job = job(stageName, List.of(container), volumes, namespace, runnerSa);
     }
 
     public String getStageName() {
@@ -128,17 +119,15 @@ public class StageDefinition {
     }
 
     public StageRun createStageRun(BlockingKubernetesClient client) {
-        if (hasOutput) {
-            return new OutputStageRun(outputPvc, job, onCompleteCopyJob, secret, client);
-        }
-        return new NoOutputStageRun(job, secret, client);
+        return new OutputStageRun(inputPvc, outputPvc, job, inputJob, onCompleteCopyJob, secret, client);
     }
 
     @Override
     public String toString() {
-        return Stream.of(outputPvc, secret, job, onCompleteCopyJob)
+        return Stream.of(inputPvc, outputPvc, secret, inputJob, job, onCompleteCopyJob)
                 .filter(Objects::nonNull)
-                .map(Serialization::asYaml).collect(Collectors.joining());
+                .map(Serialization::asYaml)
+                .collect(Collectors.joining());
     }
 
     private static PersistentVolumeClaim persistentVolumeClaim(String pvcName, int storageSizeGi, String namespace) {
@@ -153,6 +142,20 @@ public class StageDefinition {
                 .withNamespace(namespace)
                 .endMetadata()
                 .withSpec(pvcSpec)
+                .build();
+    }
+
+    private static Job job(String jobName, List<Container> containers, List<Volume> volumes, String namespace, String serviceAccountName) {
+        var pod = new PodSpecBuilder().withServiceAccountName(serviceAccountName)
+                .withContainers(containers)
+                .withRestartPolicy("Never")
+                .withVolumes(volumes)
+                .build();
+        return new JobBuilder().withNewMetadata()
+                .withName(jobName)
+                .withNamespace(namespace)
+                .endMetadata()
+                .withSpec(new JobSpecBuilder().withBackoffLimit(1).withNewTemplate().withSpec(pod).endTemplate().build())
                 .build();
     }
 }

@@ -2,7 +2,7 @@
 apiVersion: "v1"
 kind: "PersistentVolumeClaim"
 metadata:
-  name: "wf-1-0-0-ex-simple-stage"
+  name: "wf-1-0-0-ex-simple-stage-in"
   namespace: "namespace"
 spec:
   accessModes:
@@ -11,6 +11,55 @@ spec:
     requests:
       storage: "1Gi"
   storageClassName: "standard"
+---
+apiVersion: "v1"
+kind: "PersistentVolumeClaim"
+metadata:
+  name: "wf-1-0-0-ex-simple-stage-out"
+  namespace: "namespace"
+spec:
+  accessModes:
+  - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "1Gi"
+  storageClassName: "standard"
+---
+apiVersion: "batch/v1"
+kind: "Job"
+metadata:
+  name: "wf-1-0-0-ex-simple-stage-in"
+  namespace: "namespace"
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      containers:
+      - command:
+        - "sh"
+        - "-c"
+        - "mkdir /in/stage-a && gsutil -m rsync -r gs://run-wf-1-0-0-ex/stage-a /in/stage-a"
+        image: "eu.gcr.io/hmf-build/google/cloud-sdk:425.0.0"
+        name: "stage-a-input"
+        volumeMounts:
+        - mountPath: "/in"
+          name: "wf-1-0-0-ex-simple-stage-in"
+      - command:
+        - "sh"
+        - "-c"
+        - "mkdir /in/stage-b && gsutil -m rsync -r gs://run-wf-1-0-0-ex/stage-b /in/stage-b"
+        image: "eu.gcr.io/hmf-build/google/cloud-sdk:425.0.0"
+        name: "stage-b-input"
+        volumeMounts:
+        - mountPath: "/in"
+          name: "wf-1-0-0-ex-simple-stage-in"
+      restartPolicy: "Never"
+      serviceAccountName: "serviceAccount"
+      volumes:
+      - name: "wf-1-0-0-ex-simple-stage-in"
+        persistentVolumeClaim:
+          claimName: "wf-1-0-0-ex-simple-stage-in"
+          readOnly: false
 ---
 apiVersion: "batch/v1"
 kind: "Job"
@@ -25,46 +74,25 @@ spec:
       - image: "eu.gcr.io/hmf-build/image:1.0.0"
         name: "wf-1-0-0-ex-simple-stage"
         volumeMounts:
-        - mountPath: "/in/stage-a"
-          name: "wf-1-0-0-ex-stage-a"
-        - mountPath: "/in/stage-b"
-          name: "wf-1-0-0-ex-stage-b"
+        - mountPath: "/in"
+          name: "wf-1-0-0-ex-simple-stage-in"
         - mountPath: "/out"
-          name: "wf-1-0-0-ex-simple-stage"
-      initContainers:
-      - command:
-        - "sh"
-        - "-c"
-        - "gsutil rsync gs://run-wf-1-0-0-ex/stage-a /in"
-        image: "eu.gcr.io/hmf-build/google/cloud-sdk:425.0.0"
-        name: "stage-a-input"
-        volumeMounts:
-        - mountPath: "/in"
-          name: "wf-1-0-0-ex-stage-a"
-      - command:
-        - "sh"
-        - "-c"
-        - "gsutil rsync gs://run-wf-1-0-0-ex/stage-b /in"
-        image: "eu.gcr.io/hmf-build/google/cloud-sdk:425.0.0"
-        name: "stage-b-input"
-        volumeMounts:
-        - mountPath: "/in"
-          name: "wf-1-0-0-ex-stage-b"
+          name: "wf-1-0-0-ex-simple-stage-out"
       restartPolicy: "Never"
       volumes:
-      - emptyDir: {}
-        name: "wf-1-0-0-ex-stage-a"
-      - emptyDir: {}
-        name: "wf-1-0-0-ex-stage-b"
-      - name: "wf-1-0-0-ex-simple-stage"
+      - name: "wf-1-0-0-ex-simple-stage-in"
         persistentVolumeClaim:
-          claimName: "wf-1-0-0-ex-simple-stage"
+          claimName: "wf-1-0-0-ex-simple-stage-in"
+          readOnly: false
+      - name: "wf-1-0-0-ex-simple-stage-out"
+        persistentVolumeClaim:
+          claimName: "wf-1-0-0-ex-simple-stage-out"
           readOnly: false
 ---
 apiVersion: "batch/v1"
 kind: "Job"
 metadata:
-  name: "wf-1-0-0-ex-simple-stage-cp"
+  name: "wf-1-0-0-ex-simple-stage-out"
   namespace: "namespace"
 spec:
   backoffLimit: 1
@@ -74,16 +102,16 @@ spec:
       - command:
         - "sh"
         - "-c"
-        - "gsutil rsync /out gs://run-wf-1-0-0-ex/simple-stage"
+        - "gsutil -m rsync -r /out gs://run-wf-1-0-0-ex/simple-stage"
         image: "eu.gcr.io/hmf-build/google/cloud-sdk:425.0.0"
         name: "simple-stage-copier"
         volumeMounts:
         - mountPath: "/out"
-          name: "wf-1-0-0-ex-simple-stage"
+          name: "wf-1-0-0-ex-simple-stage-out"
       restartPolicy: "Never"
       serviceAccountName: "serviceAccount"
       volumes:
-      - name: "wf-1-0-0-ex-simple-stage"
+      - name: "wf-1-0-0-ex-simple-stage-out"
         persistentVolumeClaim:
-          claimName: "wf-1-0-0-ex-simple-stage"
+          claimName: "wf-1-0-0-ex-simple-stage-out"
           readOnly: false
