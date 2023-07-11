@@ -32,11 +32,10 @@ import io.fabric8.kubernetes.client.utils.Serialization;
 
 public class StageDefinition {
     private final String stageName;
-    private PersistentVolumeClaim inputPvc = null;
+    private PersistentVolumeClaim pvc = null;
     private Job inputJob = null;
     private Secret secret = null;
     private final Job job;
-    private PersistentVolumeClaim outputPvc = null;
     private Job onCompleteCopyJob = null;
 
     public StageDefinition(ExecutionStage executionStage, String namespace, int storageSizeGi, String stageCopyServiceAccount,
@@ -53,25 +52,25 @@ public class StageDefinition {
         List<VolumeMount> mounts = new ArrayList<>();
 
         var hasInput = !stage.inputStages().isEmpty();
-        if (hasInput) {
-            String inputName = KubernetesUtil.toValidRFC1123Label(stageName, "in");
-            List<Container> containers = new ArrayList<>();
-            for (final String inputStage : stage.inputStages()) {
-                containers.add(storageProvider.initStorageContainer(executionStage.bucketName(), inputStage, inputName));
-            }
-            Volume inputVolume = new VolumeBuilder().withName(inputName).withNewPersistentVolumeClaim(inputName, false).build();
-            volumes.add(inputVolume);
-            mounts.add(new VolumeMountBuilder().withName(inputName).withMountPath("/in").build());
+        var hasOutput = executionStage.stage().options().map(StageOptions::output).orElse(true);
+        var hasSecret = !executionStage.secretsByEnvVariable().isEmpty();
 
-            inputPvc = persistentVolumeClaim(inputName, storageSizeGi, namespace);
-            inputJob = job(inputName,
-                    containers,
-                    List.of(inputVolume),
-                    namespace,
-                    stageCopyServiceAccount);
+        if (hasInput || hasOutput) {
+            pvc = persistentVolumeClaim(stageName, storageSizeGi, namespace);
+            Volume inputVolume = new VolumeBuilder().withName(stageName).withNewPersistentVolumeClaim(stageName, false).build();
+            volumes.add(inputVolume);
         }
 
-        var hasSecret = !executionStage.secretsByEnvVariable().isEmpty();
+        if (hasInput) {
+            List<Container> containers = new ArrayList<>();
+            for (final String inputStage : stage.inputStages()) {
+                containers.add(storageProvider.initStorageContainer(executionStage.bucketName(), inputStage, stageName));
+            }
+
+            mounts.add(new VolumeMountBuilder().withName(stageName).withMountPath("/in").build());
+            inputJob = job(KubernetesUtil.toValidRFC1123Label(stageName, "in"), containers, volumes, namespace, stageCopyServiceAccount);
+        }
+
         if (hasSecret) {
             String secretName = KubernetesUtil.toValidRFC1123Label(stageName);
             secret = new SecretBuilder().withNewMetadata()
@@ -83,24 +82,17 @@ public class StageDefinition {
 
             for (var envVariable : executionStage.secretsByEnvVariable().keySet()) {
                 var envVar = new EnvVarBuilder().withName(envVariable)
-                        .withValueFrom(new EnvVarSourceBuilder().withNewSecretKeyRef(secretName, envVariable, false).build())
+                        .withValueFrom(new EnvVarSourceBuilder().withNewSecretKeyRef(envVariable, secretName, false).build())
                         .build();
                 environmentVariables.add(envVar);
             }
         }
 
-        var hasOutput = executionStage.stage().options().map(StageOptions::output).orElse(true);
         if (hasOutput) {
-            String outputName = KubernetesUtil.toValidRFC1123Label(stageName, "out");
-            outputPvc = persistentVolumeClaim(outputName, storageSizeGi, namespace);
-            Volume outputVolume = new VolumeBuilder().withName(outputName).withNewPersistentVolumeClaim(outputName, false).build();
-            volumes.add(outputVolume);
-            mounts.add(new VolumeMountBuilder().withName(outputName).withMountPath("/out").build());
-
-            // create on complete copy job
-            onCompleteCopyJob = job(outputName,
-                    List.of(storageProvider.exitStorageContainer(executionStage.bucketName(), stage.name(), outputName)),
-                    List.of(outputVolume),
+            mounts.add(new VolumeMountBuilder().withName(stageName).withMountPath("/out").withSubPath(stage.name()).build());
+            onCompleteCopyJob = job(KubernetesUtil.toValidRFC1123Label(stageName, "out"),
+                    List.of(storageProvider.exitStorageContainer(executionStage.bucketName(), stage.name(), stageName)),
+                    volumes,
                     namespace,
                     stageCopyServiceAccount);
         }
@@ -119,12 +111,12 @@ public class StageDefinition {
     }
 
     public StageRun createStageRun(BlockingKubernetesClient client) {
-        return new OutputStageRun(inputPvc, outputPvc, job, inputJob, onCompleteCopyJob, secret, client);
+        return new OutputStageRun(pvc, job, inputJob, onCompleteCopyJob, secret, client);
     }
 
     @Override
     public String toString() {
-        return Stream.of(inputPvc, outputPvc, secret, inputJob, job, onCompleteCopyJob)
+        return Stream.of(pvc, secret, inputJob, job, onCompleteCopyJob)
                 .filter(Objects::nonNull)
                 .map(Serialization::asYaml)
                 .collect(Collectors.joining());

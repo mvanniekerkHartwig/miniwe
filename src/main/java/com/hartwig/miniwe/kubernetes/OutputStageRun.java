@@ -19,9 +19,9 @@ class OutputStageRun implements StageRun {
 
     private final BlockingKubernetesClient client;
 
-    OutputStageRun(PersistentVolumeClaim inputPvc, PersistentVolumeClaim outputPvc, Job stageJob, Job inputJob, Job onCompleteCopyJob,
+    OutputStageRun(PersistentVolumeClaim pvc, Job stageJob, Job inputJob, Job onCompleteCopyJob,
             Secret secret, BlockingKubernetesClient client) {
-        this.pvcs = Stream.of(inputPvc, outputPvc).filter(Objects::nonNull).collect(Collectors.toList());
+        this.pvcs = Stream.of(pvc).filter(Objects::nonNull).collect(Collectors.toList());
         this.jobs = Stream.of(inputJob, stageJob, onCompleteCopyJob).filter(Objects::nonNull).collect(Collectors.toList());
         this.secret = secret;
         this.client = client;
@@ -46,7 +46,6 @@ class OutputStageRun implements StageRun {
             if (!jobSucceeded) {
                 return false;
             }
-            client.deleteIfExists(job);
         }
         return true;
     }

@@ -2,7 +2,7 @@
 apiVersion: "v1"
 kind: "PersistentVolumeClaim"
 metadata:
-  name: "wf-1-0-0-ex-simple-stage-out"
+  name: "wf-1-0-0-ex-simple-stage"
   namespace: "namespace"
 spec:
   accessModes:
@@ -26,12 +26,13 @@ spec:
         name: "wf-1-0-0-ex-simple-stage"
         volumeMounts:
         - mountPath: "/out"
-          name: "wf-1-0-0-ex-simple-stage-out"
+          name: "wf-1-0-0-ex-simple-stage"
+          subPath: "simple-stage"
       restartPolicy: "Never"
       volumes:
-      - name: "wf-1-0-0-ex-simple-stage-out"
+      - name: "wf-1-0-0-ex-simple-stage"
         persistentVolumeClaim:
-          claimName: "wf-1-0-0-ex-simple-stage-out"
+          claimName: "wf-1-0-0-ex-simple-stage"
           readOnly: false
 ---
 apiVersion: "batch/v1"
@@ -52,11 +53,12 @@ spec:
         name: "simple-stage-copier"
         volumeMounts:
         - mountPath: "/out"
-          name: "wf-1-0-0-ex-simple-stage-out"
+          name: "wf-1-0-0-ex-simple-stage"
+          subPath: "simple-stage"
       restartPolicy: "Never"
       serviceAccountName: "serviceAccount"
       volumes:
-      - name: "wf-1-0-0-ex-simple-stage-out"
+      - name: "wf-1-0-0-ex-simple-stage"
         persistentVolumeClaim:
-          claimName: "wf-1-0-0-ex-simple-stage-out"
+          claimName: "wf-1-0-0-ex-simple-stage"
           readOnly: false
